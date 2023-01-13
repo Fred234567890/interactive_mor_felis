@@ -1,0 +1,59 @@
+
+# File patterns to ignore; see `git help ignore` for more information.
+# Lines that start with '#' are comments.
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+
+
+#visual studio
+.vs/
+Data/
+tmp/
+
+
+#individual stuff
+*.rar
+*.pyc
+*fAxis*
+
+__pycache__/
+.idea/
+
+#custom 
+*.pdb
+*.pmat
+*.info
+*fAxis*
+mats/
