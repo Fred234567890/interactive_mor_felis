@@ -43,9 +43,9 @@ nModes={'TB':0,
 
 cond=5.8e6
 
-init_felis=False
-recreate_mats=False
-recreate_test=False
+init_felis=True
+recreate_mats=True
+recreate_test=True
 
 ###############################################################################
 ###create constant matrices
