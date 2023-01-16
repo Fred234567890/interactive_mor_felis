@@ -15,13 +15,13 @@ import plotfuns
 
 path=dict();
 path['felis']     = os.path.abspath('').split('\\FELIS')[0]+'\\FELIS\\'
-path['workDir']   = os.path.abspath('').split('\\pythonTests')[0]+'\\pythonTests\\'
+path['workDir']   = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
 path['impedance'] = '' #path['felis']+'Data\\Beam\\'
 path['plots']     = path['workDir']+'_Documentation\\images\\'
 
 
 plotAll=False
-plotMag=False
+plotMag=True
 
 
 impedance=ut.csvRead(path['impedance']+'impedance.txt',delim_whitespace=True)

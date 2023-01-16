@@ -8,7 +8,7 @@ import numpy as np
 import scipy as sc
 import scipy.sparse.linalg as sslina
 
-class port:
+class Port:
     eps  = 8.8541878e-12 
     mu = 1.2566371e-06 
     c0=-1 
@@ -45,9 +45,9 @@ class port:
             self.cutoffsTM=[]
         
         self.fieldsTB = list() #readModesTx(self,'TB', self.numTB) 
-        self.fieldsTS = port.readModesTx (self.matRead,self.path,'TS',self.numTS) 
-        self.fieldsTE = port.readModesTx (self.matRead,self.path,'TE',self.numTE)    
-        self.fieldsTM = port.readModesTx (self.matRead,self.path,'TM',self.numTM) 
+        self.fieldsTS = Port.readModesTx (self.matRead,self.path,'TS',self.numTS)
+        self.fieldsTE = Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
+        self.fieldsTM = Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
 
         
  

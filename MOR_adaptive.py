@@ -12,7 +12,7 @@ import scipy.linalg as slina
 import scipy.sparse.linalg as sslina
 import oct2py
 import os
-
+import subprocess
 import port
 import plotfuns
 import MOR
@@ -164,7 +164,7 @@ fig=plotfuns.initPlot(title='res convergence',logX=True,logY=True,xName='nBasis'
 plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
 plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
 plotfuns.showPlot(fig)
-plotfuns.exportPlot(fig, 'const_conv_st2_adap_1', 'full', path=path['plots'],opts={'legendShow':True})
+# plotfuns.exportPlot(fig, 'const_conv_st2_adap_1', 'full', path=path['plots'],opts={'legendShow':True})
 
 
 raise Exception()

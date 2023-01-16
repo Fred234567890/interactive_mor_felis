@@ -13,12 +13,3 @@ import pandas
     
 
 
-import zmq
-
-context = zmq.Context()
-
-#  Socket to talk to server
-print("Connecting to hello world server...")
-socket = context.socket(zmq.REQ)
-socket.connect("tcp://localhost:5555")
-socket.send_string("export_mats: 54, -6, 231245324")
