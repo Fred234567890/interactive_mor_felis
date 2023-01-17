@@ -16,8 +16,9 @@ import port
 import plotfuns
 import MOR
 
-oc = oct2py.Oct2Py()
-pRead=lambda path:ut.pRead(oc, path)
+# oc = oct2py.Oct2Py()
+# pRead=lambda path:ut.pRead(oc, path)
+pRead=lambda path:ut.petscRead(path)
 
 path=dict();
 path['workDir'] = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
@@ -43,9 +44,9 @@ nModes={'TB':0,
 
 cond=5.8e6
 
-init_felis=True
-recreate_mats=True
-recreate_test=True
+init_felis=False
+recreate_mats=False
+recreate_test=False
 
 ###############################################################################
 ###create constant matrices
@@ -102,6 +103,7 @@ for iBasis in range(nMax):
 
     ###############################################################################
     #online stage:
+
 
     (resTot,res_ROM,err_R_F,Znew,uMOR)=MOR.podOnlineSt2(fAxis,U,ports,Mats,factors,RHS,fIndsTest,sols_test,JSrc)
     res_Plot.append(resTot)

@@ -66,11 +66,14 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
     ports = []
     for i in range(nPorts):
         ports.append(port.Port(path['ports'] + str(i) + '\\', pRead, nModes))
+        print('port read modes')
         ports[i].readModes()
+        print('port read maps')
         ports[i].readMaps()
-
-    RHS = pRead(path['mats'] + 'RHSs').toarray()
-    JSrc = pRead(path['mats'] + 'Js').toarray()
+    print('read RHS')
+    RHS = pRead(path['mats'] + 'RHSs')
+    print('read Js')
+    JSrc = pRead(path['mats'] + 'Js')
 
     #  create fAxis
     fAxis = np.linspace(fmin, fmax, nTrain)

@@ -29,18 +29,18 @@ class Port:
         fieldsTx=list ()
         # N=0
         for i in range (numModes) :
-            fieldsTx.append (matRead(path+Tx+'\\'+str (i)).toarray())
+            fieldsTx.append (matRead(path+Tx+'\\'+str (i)))
             # if i==0: N=len (fieldsTx[0])
         return fieldsTx
     
     
     def readModes(self):
         if self.numTE>0:
-            self.cutoffsTE=self.matRead (self.path+'TE').toarray().T.tolist()[0]
+            self.cutoffsTE=self.matRead (self.path+'TE').T.tolist()[0]
         else:
             self.cutoffsTE=[]
         if self.numTM>0:
-            self.cutoffsTM=self.matRead (self.path+'TM').toarray().T.tolist()[0]
+            self.cutoffsTM=self.matRead (self.path+'TM').T.tolist()[0]
         else:
             self.cutoffsTM=[]
         

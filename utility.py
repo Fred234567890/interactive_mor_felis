@@ -215,6 +215,85 @@ def pRead(octaveInstance,absPath,cmplx=True,fExtension='.pmat'):
     A=octaveInstance.pRead(absPath+fExtension,cmplx)
     return A
 
+def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
+    if not '.pmat' in filename:
+        filename=filename+'.pmat'
+        print('added .pmat to filename')
+        # warnings.warn('File extension .pmat was added to the filename, fix your code')
+
+    import scipy.sparse as ssp
+    if indices == 'int32':
+        indices = ">i4"
+    elif indices == 'int64':
+        indices = ">i8"
+    else:
+        raise ValueError('Unknown indices type')
+
+    if precision == 'float32':
+        precision = ">f4"
+    elif precision == 'float64':
+        precision = ">f8"
+    else:
+        raise ValueError('Unknown precision type')
+
+    file=open(filename,'rb')
+    # data = np.fromfile(filename, dtype='<f4', count=1)
+
+    filetype=np.fromfile(file, dtype=indices, count=1)[0]
+    if filetype == 1211214:
+        # vector
+        size=np.fromfile(file, dtype=indices, count=1)[0]
+        if iscomplex:
+            data=np.fromfile(file, dtype=precision, count=2*size)
+            v = np.empty(size, dtype=np.complex64)
+            v.real= data[0::2]
+            v.imag= data[1::2]
+        else:
+            v=np.fromfile(file, dtype=precision, count=size)
+
+    elif  filetype == 1211216:
+        # matrix
+        m,n,nz=np.fromfile(file, dtype=indices, count=3)  #m=rows, n=cols, nz=nonzeros
+        if nz==-1:
+            raise Exception('dense matrix not supported')
+        nnz=np.fromfile(file, dtype=indices, count=m)   #nonzeros per row
+
+        if nz==m*n:
+            if iscomplex:
+                data=np.fromfile(file, dtype=precision, count=2*nz)
+                v = np.empty(nz, dtype=np.complex64)
+                v.real= data[0::2]
+                v.imag= data[1::2]
+                del data
+            else:
+                v=np.fromfile(file, dtype=precision, count=nz)
+            v=v.reshape((m,n))
+
+        sum_nz = sum(nnz)
+        if not sum_nz == nz:
+            raise Exception('No-Nonzeros sum-rowlengths do not match nz: %d, sum_nz: %d', nz, sum_nz)
+        # i=np.ones(nz)
+
+        if iscomplex:
+            data=np.fromfile(file, dtype=precision, count=2*nz)
+            v = np.empty(nz, dtype=np.complex64)
+            v.real= data[0::2]
+            v.imag= data[1::2]
+        else:
+            data=np.fromfile(file, dtype=precision, count=nz)
+            v=data
+        del data
+        colInds=np.fromfile(file, dtype=indices, count=nz)
+        indptr=np.zeros(m+1, dtype=indices)
+        indptr[1:]=np.cumsum(nnz)
+        v=ssp.csr_matrix((v,colInds,indptr),shape=(m,n))
+    else:
+        file.close()
+        raise Exception('File type not supported')
+        raise Exception('File type %d not supported', filetype)
+    file.close()
+    return v
+
 ###############################################################################
 ###misc
 
