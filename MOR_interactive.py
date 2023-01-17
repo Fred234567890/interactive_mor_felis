@@ -7,7 +7,7 @@ import numpy.linalg as nlina
 import scipy.linalg as slina
 import scipy.sparse as ss
 import scipy.sparse.linalg as sslina
-import oct2py
+# import oct2py
 import os
 import zmq
 import warnings
@@ -94,9 +94,9 @@ for iBasis in range(nMax):
     print(message)
 
     if iBasis == 0:
-        sols= pRead(path['sols'] + 'train_0').toarray()
+        sols = pRead(path['sols'] + 'train_0')
     else:
-        sols = np.append(sols, pRead(path['sols'] +'train_'+str(iBasis)).toarray(), axis=1)
+        sols = np.append(sols, pRead(path['sols'] +'train_'+str(iBasis)), axis=1)
 
     (U,s,V)=slina.svd(sols,full_matrices=False)
 

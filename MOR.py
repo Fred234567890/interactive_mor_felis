@@ -70,10 +70,12 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
         ports[i].readModes()
         print('port read maps')
         ports[i].readMaps()
+
+
     print('read RHS')
-    RHS = pRead(path['mats'] + 'RHSs')
+    RHS = pRead(path['mats'] + 'RHSs')  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
     print('read Js')
-    JSrc = pRead(path['mats'] + 'Js')
+    JSrc = pRead(path['mats'] + 'Js')  #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
 
     #  create fAxis
     fAxis = np.linspace(fmin, fmax, nTrain)
@@ -93,9 +95,9 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
             message = socket.recv()
             print(message)
         if i == 0:
-            sols_test = pRead(path['sols'] + 'test_0').toarray()
+            sols_test = pRead(path['sols'] + 'test_0')
         else:
-            sols_test = np.append(sols_test, pRead(path['sols'] + 'test_' + str(i)).toarray(), axis=1)
+            sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
     return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
 
 
