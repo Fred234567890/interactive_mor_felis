@@ -36,11 +36,11 @@ class Port:
     
     def readModes(self):
         if self.numTE>0:
-            self.cutoffsTE=self.matRead (self.path+'TE').T.tolist()[0]
+            self.cutoffsTE=np.real(self.matRead (self.path+'TE')).T.tolist()[0]
         else:
             self.cutoffsTE=[]
         if self.numTM>0:
-            self.cutoffsTM=self.matRead (self.path+'TM').T.tolist()[0]
+            self.cutoffsTM=np.real(self.matRead (self.path+'TM')).T.tolist()[0]
         else:
             self.cutoffsTM=[]
         

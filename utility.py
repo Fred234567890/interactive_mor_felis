@@ -258,7 +258,16 @@ def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
             raise Exception('dense matrix not supported')
         nnz=np.fromfile(file, dtype=indices, count=m)   #nonzeros per row
 
+
+        sum_nz = sum(nnz)
+        if not sum_nz == nz:
+            raise Exception('No-Nonzeros sum-rowlengths do not match nz: %d, sum_nz: %d', nz, sum_nz)
+        # i=np.ones(nz)
+
+        colInds=np.fromfile(file, dtype=indices, count=nz)
+
         if nz==m*n:
+            #matrix is actually dense
             if iscomplex:
                 data=np.fromfile(file, dtype=precision, count=2*nz)
                 v = np.empty(nz, dtype=np.complex64)
@@ -268,30 +277,28 @@ def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
             else:
                 v=np.fromfile(file, dtype=precision, count=nz)
             v=v.reshape((m,n))
-
-        sum_nz = sum(nnz)
-        if not sum_nz == nz:
-            raise Exception('No-Nonzeros sum-rowlengths do not match nz: %d, sum_nz: %d', nz, sum_nz)
-        # i=np.ones(nz)
-
-        if iscomplex:
-            data=np.fromfile(file, dtype=precision, count=2*nz)
-            v = np.empty(nz, dtype=np.complex64)
-            v.real= data[0::2]
-            v.imag= data[1::2]
         else:
-            data=np.fromfile(file, dtype=precision, count=nz)
-            v=data
-        del data
-        colInds=np.fromfile(file, dtype=indices, count=nz)
-        indptr=np.zeros(m+1, dtype=indices)
-        indptr[1:]=np.cumsum(nnz)
-        v=ssp.csr_matrix((v,colInds,indptr),shape=(m,n))
+            #matrix is actually sparse
+            if iscomplex:
+                precision = ">f8"
+                data=np.fromfile(file, dtype=precision, count=2*nz)
+                v = np.empty(nz, dtype=np.complex64)
+                v.real= data[0::2]
+                v.imag= data[1::2]
+            else:
+                data=np.fromfile(file, dtype=precision, count=nz)
+                v=data
+            del data
+            indptr=np.zeros(m+1, dtype=indices)
+            indptr[1:]=np.cumsum(nnz)
+            v=ssp.csr_matrix((v,colInds,indptr),shape=(m,n))
     else:
         file.close()
         raise Exception('File type not supported')
         raise Exception('File type %d not supported', filetype)
     file.close()
+    if dim(v)==1:
+        v=np.array([v]).T
     return v
 
 ###############################################################################
