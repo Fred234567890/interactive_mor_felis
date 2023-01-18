@@ -245,7 +245,7 @@ def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
         size=np.fromfile(file, dtype=indices, count=1)[0]
         if iscomplex:
             data=np.fromfile(file, dtype=precision, count=2*size)
-            v = np.empty(size, dtype=np.complex64)
+            v = np.empty(size, dtype=np.complex128)
             v.real= data[0::2]
             v.imag= data[1::2]
         else:
@@ -270,7 +270,7 @@ def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
             #matrix is actually dense
             if iscomplex:
                 data=np.fromfile(file, dtype=precision, count=2*nz)
-                v = np.empty(nz, dtype=np.complex64)
+                v = np.empty(nz, dtype=np.complex128)
                 v.real= data[0::2]
                 v.imag= data[1::2]
                 del data
@@ -282,7 +282,7 @@ def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
             if iscomplex:
                 precision = ">f8"
                 data=np.fromfile(file, dtype=precision, count=2*nz)
-                v = np.empty(nz, dtype=np.complex64)
+                v = np.empty(nz, dtype=np.complex128)
                 v.real= data[0::2]
                 v.imag= data[1::2]
             else:
