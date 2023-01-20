@@ -1,0 +1,328 @@
+
+%% bare_jrnl.tex
+%% V1.4b
+%% 2015/08/26
+%% by Michael Shell
+%% see http://www.michaelshell.org/
+%% for current contact information.
+%%
+%% This is a skeleton file demonstrating the use of IEEEtran.cls
+%% (requires IEEEtran.cls version 1.8b or later) with an IEEE
+%% journal paper.
+%%
+%% Support sites:
+%% http://www.michaelshell.org/tex/ieeetran/
+%% http://www.ctan.org/pkg/ieeetran
+%% and
+%% http://www.ieee.org/
+
+%%*************************************************************************
+%% Legal Notice:
+%% This code is offered as-is without any warranty either expressed or
+%% implied; without even the implied warranty of MERCHANTABILITY or
+%% FITNESS FOR A PARTICULAR PURPOSE! 
+%% User assumes all risk.
+%% In no event shall the IEEE or any contributor to this code be liable for
+%% any damages or losses, including, but not limited to, incidental,
+%% consequential, or any other damages, resulting from the use or misuse
+%% of any information contained here.
+%%
+%% All comments are the opinions of their respective authors and are not
+%% necessarily endorsed by the IEEE.
+%%
+%% This work is distributed under the LaTeX Project Public License (LPPL)
+%% ( http://www.latex-project.org/ ) version 1.3, and may be freely used,
+%% distributed and modified. A copy of the LPPL, version 1.3, is included
+%% in the base LaTeX documentation of all distributions of LaTeX released
+%% 2003/12/01 or later.
+%% Retain all contribution notices and credits.
+%% ** Modified files should be clearly indicated as such, including  **
+%% ** renaming them and changing author support contact information. **
+%%*************************************************************************
+
+\documentclass[journal]{IEEEtran}
+
+% *** OWN PACKAGES ***
+
+%\usepackage[american,siunitx, RPvoltages]{circuitikz}
+\usepackage{layouts}
+\usepackage{placeins}
+\usepackage{textgreek}
+\usepackage{tabularx}
+
+\usepackage[american,siunitx]{circuitikz}
+%\usepackage[style=IEEE,sorting=ydnt,defernumbers,backend=biber]{biblatex}
+
+%%%%%%%%%%%%%%%%%%%
+%Pakete Mathematik
+\usepackage{mathtools} % erweiterte Fassung von amsmath
+\usepackage{amssymb}   % erweiterter Zeichensatz
+\usepackage{bm}			% fette Mathe symbole
+\usepackage{siunitx}   % Einheiten
+\DeclareSIUnit{\nothing}{\relax}
+\sisetup{number-unit-product = \text{}}
+
+%%%%%%%%%%%%%%%%%%%
+%Pakete Pseudocode
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+% *** CITATION PACKAGES ***
+%
+\usepackage{cite}
+
+% *** GRAPHICS RELATED PACKAGES ***
+%
+\ifCLASSINFOpdf
+  % \usepackage[pdftex]{graphicx}
+  % declare the path(s) where your graphic files are
+  % \graphicspath{{../pdf/}{../jpeg/}}
+  % and their extensions so you won't have to specify these with
+  % every instance of \includegraphics
+  % \DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+\else
+  % or other class option (dvipsone, dvipdf, if not using dvips). graphicx
+  % will default to the driver specified in the system graphics.cfg if no
+  % driver is specified.
+  % \usepackage[dvips]{graphicx}
+  % declare the path(s) where your graphic files are
+  % \graphicspath{{../eps/}}
+  % and their extensions so you won't have to specify these with
+  % every instance of \includegraphics
+  % \DeclareGraphicsExtensions{.eps}
+\fi
+
+\usepackage{amsmath}
+
+% *** SUBFIGURE PACKAGES ***
+\ifCLASSOPTIONcompsoc
+  \usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\else
+  \usepackage[caption=false,font=footnotesize]{subfig}
+\fi
+
+% correct bad hyphenation here
+\hyphenation{op-tical net-works semi-conduc-tor}
+\graphicspath{ {./images/} }
+
+
+\begin{document}
+%
+
+% Do not put math or special symbols in the title.
+\title{FELIS-MOR Documentation}
+%
+%
+
+%
+
+\author{Frederik~Quetscher}% <-this % stops a space
+% <-this % stops a space
+% <-this % stops a space
+
+
+% The paper headers
+\markboth{IEEE template,~Vol.~$n$, No.~$m$, August~2022}%
+{Shell \MakeLowercase{\textit{et al.}}: Bare Demo of IEEEtran.cls for IEEE Journals}
+% The only time the second header will appear is for the odd numbered pages
+% after the title page when using the twoside option.
+% 
+% *** Note that you probably will NOT want to include the author's ***
+% *** name in the headers of peer review papers.                   ***
+% You can use \ifCLASSOPTIONpeerreview for conditional compilation here if
+% you desire.
+
+\newcommand{\diff}[1][V]{\ensuremath{\,\mathrm{d}{#1}}}
+\newcommand{\tensor}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\transpose}[1]{\ensuremath{{#1}^\mathsf{T}}}
+\newcommand{\hermite}[1]{\ensuremath{{#1}^\mathsf{H}}}
+\newcommand{\curl}{\,\mathrm{curl}\,}
+\renewcommand{\div}{\,\mathrm{div}\,}
+\newcommand{\grad}{\,\mathrm{grad}\,}
+
+% make the title area
+\maketitle
+
+
+%%%%%%%Commands
+%general
+\newcommand{\mbf}{\mathbf}
+\newcommand{\mrm}{\mathrm}
+%\newcommand{\ul}{\underline}
+
+
+
+%elementary sets
+\newcommand{\R}{\mathbb R}
+\newcommand{\Cset}{\mathbb C}
+%\newcommand{\N}{\mathbb N}
+
+%advanced sets
+\newcommand{\Pcal}{\mathcal P}
+
+\newcommand{\Dc}{\mathcal D}
+
+\newcommand{\setFRange}{d_f}
+
+\newcommand{\setFRF}{\mathcal F} %A^\mathrm{FRF}
+\newcommand{\setFRFApp}{\mathcal F^\mathrm{Appr}} %A^\mathrm{FRF}
+\newcommand{\setFRFMapped}{\Fhat{\mathcal F}} %A^\mathrm{FRF}
+\newcommand{\setFRFAppMapped}{\Fhat{\mathcal F^\mathrm{Appr}}} %A^\mathrm{FRF}
+
+\newcommand{\setSim}{\mathcal A}%^\mathrm{Sim}
+\newcommand{\setApp}{\mathcal A^\mathrm{Appr}}
+\newcommand{\setAppC}{\ul{\mathcal A}^\mathrm{Appr}}
+
+\newcommand{\setFRFD}{\mathbf F} %A^\mathrm{FRF}
+\newcommand{\setFRFAppD}{\mathbf F^\mathrm{Appr}} %A^\mathrm{FRF}
+
+\newcommand{\setSimD}{\mathbf A} %^\mathrm{Sim}
+\newcommand{\setAppD}{\mathbf A^\mathrm{Appr}}
+
+\newcommand{\setCoeffApp}{\mathcal C^\mathrm{Appr}}%^\mathrm{Sim}
+
+%operators
+\newcommand{\E}{\mathrm E}
+\newcommand{\re}{\mathrm{real}}
+\newcommand{\im}{\mathrm{imag}}
+\newcommand{\argmax}[1]{\underset{#1}{\arg\max}}
+\newcommand{\argmin}[1]{\underset{#1}{\arg\min}}
+
+
+%functions
+\newcommand{\deltaij}{\delta_{ij}}
+
+%variables
+\newcommand{\bfx}{\mathbf x}
+\newcommand{\bfy}{\mathbf y}
+\newcommand{\bfY}{\mathbf Y}
+\newcommand{\bff}{\mathbf f}
+\newcommand{\bfh}{\mathbf h}
+\newcommand{\bfH}{\mathbf H}
+
+%words/misc
+
+\newcommand{\gdm}{\mathrm{GDM}}
+\newcommand{\with}{\ \mathrm{with}\ }
+%\newcommand*{\Fhat}[1]{#1\kern-0.68em\hat{\phantom{#1}}}
+\newcommand*{\Fhat}[1]{\hat{#1}}
+
+%\newcommand*{\fhat}[1]{#1\kern-0.5em\hat{\phantom{#1}}}
+%\newcommand*{\todo}[1]{\textcolor{red}{(todo: #1)}}
+\newcommand*{\todo}[1]{}
+
+
+\newcommand{\refgl}[1]{(\ref{#1})}
+\newcommand{\mhz}[1]{\qty{#1}{MHz}}
+\newcommand{\khz}[1]{\qty{#1}{kHz}}
+\newcommand{\mum}[1]{#1µm}
+
+\newcommand{\e}{\mrm e}
+
+
+\newcommand{\ltn}{$L^2$-norm }
+
+
+% As a general rule, do not put math, special symbols or citations
+% in the abstract or keywords.
+%\begin{abstract}
+%\input{abstract.tex}
+%\end{abstract}
+
+% Note that keywords are not normally used for peerreview papers.
+%\begin{IEEEkeywords}
+%IEEE, IEEEtran, journal, \LaTeX, paper, template.
+%\end{IEEEkeywords}
+
+
+\IEEEpeerreviewmaketitle
+
+
+
+\input{MOR_st1.tex}
+\input{MOR_st3.tex}
+
+
+% Can use something like this to put references on a page
+% by themselves when using endfloat and the captionsoff option.
+%\ifCLASSOPTIONcaptionsoff
+%  \newpage
+%\fi
+
+
+
+% trigger a \newpage just before the given reference
+% number - used to balance the columns on the last page
+% adjust value as needed - may need to be readjusted if
+% the document is modified later
+%\IEEEtriggeratref{8}
+% The "triggered" command can be changed if desired:
+%\IEEEtriggercmd{\enlargethispage{-5in}}
+
+% references section
+
+% can use a bibliography generated by BibTeX as a .bbl file
+% BibTeX documentation can be easily obtained at:
+% http://mirror.ctan.org/biblio/bibtex/contrib/doc/
+% The IEEEtran BibTeX style support page is at:
+% http://www.michaelshell.org/tex/ieeetran/bibtex/
+%\bibliographystyle{IEEEtran}
+% argument is your BibTeX string definitions and bibliography database(s)
+%\bibliography{IEEEabrv,../bib/paper}
+%
+% <OR> manually copy in the resultant .bbl file
+% set second argument of \begin to the number of references
+% (used to reserve space for the reference number labels box)
+
+%\bibliographystyle{IEEEtran}
+
+%\bibliography{literature}
+
+
+
+% biography section
+% 
+% If you have an EPS/PDF photo (graphicx package needed) extra braces are
+% needed around the contents of the optional argument to biography to prevent
+% the LaTeX parser from getting confused when it sees the complicated
+% \includegraphics command within an optional argument. (You could create
+% your own custom macro containing the \includegraphics command to make things
+% simpler here.)
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{mshell}}]{Michael Shell}
+% or if you just want to reserve a space for a photo:
+%
+%\begin{IEEEbiographynophoto}{Frederik Quetscher}
+%	Biography text here.
+%\end{IEEEbiographynophoto}
+%
+%
+%% if you will not have a photo at all:
+%\begin{IEEEbiographynophoto}{Jan Hansen}
+%	Biography text here.
+%\end{IEEEbiographynophoto}
+%
+%\begin{IEEEbiography}{Andreas Klaedtke}
+%	Biography text here.
+%\end{IEEEbiography}
+%
+
+
+
+% You can push biographies down or up by placing
+% a \vfill before or after them. The appropriate
+% use of \vfill depends on what kind of text is
+% on the last page and whether or not the columns
+% are being equalized.
+
+%\vfill
+
+% Can be used to pull up biographies so that the bottom of the last one
+% is flush with the other column.
+%\enlargethispage{-5in}
+
+
+
+% that's all folks
+\end{document}
+
+

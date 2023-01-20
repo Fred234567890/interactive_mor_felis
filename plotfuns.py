@@ -19,6 +19,7 @@ import warnings
 
 
 import scipy.interpolate as sint
+import kaleido; print(kaleido.__version__)
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
@@ -342,6 +343,10 @@ def exportPlot(fig,fileName,size,plotType=None,path=None,opts=dict()):
     if not 'ticktextY' in opts.keys(): opts['ticktextY']=None
     if not 'xRange' in opts.keys(): opts['xRange']=None
     if not 'yRange' in opts.keys(): opts['yRange']=None
+    if not 'xFormat' in opts.keys(): opts['xFormat']='~s' #plotly defaul: ''
+    if not 'yFormat' in opts.keys(): opts['yFormat']='~s' #plotly defaul: ''
+    if not 'xSuffix' in opts.keys(): opts['xSuffix']=None
+    if not 'ySuffix' in opts.keys(): opts['ySuffix']=None
     
     
     #setup export path
@@ -481,9 +486,9 @@ def exportPlot(fig,fileName,size,plotType=None,path=None,opts=dict()):
         # x=0.27
         # y=0.8   
         xAnchor="right" 
-        yAnchor="top"  
-        x=1-spaceLegend
-        y=0.55# spaceLegend/height*width*0.95
+        yAnchor="bottom"
+        x=0.92-spaceLegend
+        y=0+spaceLegend
         
         
     fig.update_layout(showlegend=opts['legendShow'])
@@ -517,7 +522,9 @@ def exportPlot(fig,fileName,size,plotType=None,path=None,opts=dict()):
     fig.update_xaxes(color=fontCol)
     fig.update_xaxes(title_font_size=fontSmall)
     fig.update_xaxes(zeroline=False)
-    
+    fig.update_xaxes(tickformat=opts['xFormat'])
+    fig.update_xaxes(ticksuffix=opts['xSuffix'])
+
     if opts['yTick']!=None:
         fig.update_yaxes(dtick=opts['yTick'])
     if opts['tickvalsY']!=None:
@@ -538,6 +545,8 @@ def exportPlot(fig,fileName,size,plotType=None,path=None,opts=dict()):
     fig.update_yaxes(color=fontCol)
     fig.update_yaxes(title_font_size=fontSmall)
     fig.update_yaxes(zeroline=False)
+    fig.update_yaxes(tickformat=opts['yFormat'])
+    fig.update_yaxes(ticksuffix=opts['ySuffix'])
 
     #margin
     fig.update_layout(margin_autoexpand=False)        

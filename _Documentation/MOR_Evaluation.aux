@@ -1,0 +1,57 @@
+\relax 
+\@writefile{toc}{\contentsline {section}{\numberline {I}MOR Stage 2}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-}1}Affine decomposition for volumetric matrices+ports}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-}2}Affine decomposition for SibcE}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-}3}other infos}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}results}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}1}Square Cavity}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Geometry of the square cavity.}}{1}{}\protected@file@percent }
+\newlabel{}{{1}{1}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces The required number of snapshots is in the range of 5 to 20 for this example. There is a perfect agreement between the RHS residual and the error against the test-data. Hence both error metrics are viable.}}{1}{}\protected@file@percent }
+\newlabel{}{{2}{1}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The residual is almost frequency independent, hence an adaptive sweep would not improve convergence. The use of nested points would be more advantageous. An exception to this is the accuracy close to the resonances before convergence starts, there adaptive points may be beneficial.}}{2}{}\protected@file@percent }
+\newlabel{}{{3}{2}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Imaginary part of the impedance. The first resonance frequency is met to full visual accuracy at nB=3, the second at nB= 7. At nB=7 no further convergence is visible.}}{2}{}\protected@file@percent }
+\newlabel{}{{4}{2}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}2}thoughts about stage3}{2}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Real part of the impedance. About the same observations regarding the convergence. Main observation: The real part does not agree with the FELIS code (Zre=0), but agrees with CST (if I remember correctly). Also if I calculate the impedance in Matlab using the field solution and current density exported from FELIS, I get this result. Is there maybe a mistake in FELIS? Update: Im python code war noch ein Fehler, jetzt könnten Felis und python übereinstimmen}}{2}{}\protected@file@percent }
+\newlabel{}{{5}{2}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Convergence if always the frequency with largest residual gets added. The convergence is slightly faster. Compare to linearly spaced problem, looking at err: For nB=8 both samplings lead to the same error. The adaptive sampling reaches at nB=16 the full accuracy, the linear one at nB=19. The adaptive sampling breaks down, because a previously chosen frequency point is chosen again.}}{2}{}\protected@file@percent }
+\newlabel{}{{6}{2}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}3}Resistive Square Cavity}{2}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Convergence of the residual over the frequency axis. The dots show the frequencies where the snapshots are taken. The algorithm breaks down, because the sample at around 660MHz is chosen again.\\ As visible: 1. the convergence is not uniform; 2. the spacing is surprisingly close to uniform; 3. almost always the residual is the lowest at the snapshots. Interestingly the technique of sampling at the highest residual is similar to an adaptive Gram-Schmidt method. A faster and more uniform convergence may be achieved, if the samples would be taken at the frequencies of highest expected improvement. This is actually the idea behind the SVD.}}{3}{}\protected@file@percent }
+\newlabel{}{{7}{3}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces The total runtime of adaptive version. The meanings are:\\ 1, lambda, reading the data from the drive, mainly the right hand sides;\\ 2. morOnline, the major part of the code; \\2.1+2.2, obviously the major parts of the runtime comes from operations involving the ports. This first due to the large number of calls (8 000) and their subfunctions (80 000), second, because in each call a sparse vector is cast into a dense one, and third, because surprisingly the transpositions are costly. I assume this should be much faster in c++; \\2.3, matmul, part of 2.2;\\ 3, toarray, part of 2.1;\\ svd: calculating the svds is super cheap, just 30ms in total.}}{3}{}\protected@file@percent }
+\newlabel{fig:st2_sqc_runtime1}{{8}{3}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}4}Resistive Square Cavity Broadband}{3}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Convergence for the resistive square cavity with linearly spaced points.}}{3}{}\protected@file@percent }
+\newlabel{}{{9}{3}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Convergence for the resistive square cavity over frequency. }}{3}{}\protected@file@percent }
+\newlabel{}{{10}{3}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}5}Constriction}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {I-A}6}CubeWire}{3}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Convergence for the resistive square cavity with adaptive points. The convergence is slightly faster.}}{4}{}\protected@file@percent }
+\newlabel{}{{11}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Convergence for the resistive square cavity with linearly spaced points over a broad frequency range.}}{4}{}\protected@file@percent }
+\newlabel{}{{12}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Convergence for the resistive square cavity over frequency. Compared to the previous examples, this time the convergence is not uniform and significantly quicker in the lower frequencies. The numbers don't equal the number of basis functions: 14=60}}{4}{}\protected@file@percent }
+\newlabel{}{{13}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Convergence for the resistive square cavity with adaptive points.}}{4}{}\protected@file@percent }
+\newlabel{}{{14}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Convergence for the resistive square cavity over frequency with adaptive sampling. Compared to the previous example, this time the convergence is uniform.}}{4}{}\protected@file@percent }
+\newlabel{}{{15}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces Magnitude of the impedance for 18 basis functions. This number is chosen so that some error is visible. It is difficult to say whether the adaptive or non-adaptive version is better. The non-adaptive found all resonances, but has four spurious ones. The adaptive one has no spurious resonances but is missing the last resonance.}}{4}{}\protected@file@percent }
+\newlabel{}{{16}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces Geometry of the constriction model. Surface impedance=5.8e6 S/m }}{4}{}\protected@file@percent }
+\newlabel{}{{17}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {18}{\ignorespaces Convergence for the non-adaptive code }}{5}{}\protected@file@percent }
+\newlabel{}{{18}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {19}{\ignorespaces Impedances. }}{5}{}\protected@file@percent }
+\newlabel{}{{19}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {20}{\ignorespaces Convergence for the adaptive code. The convergence is a siginificantly faster. The accuracy of the linear case with nB=50 is reached here with nB=30...35.}}{5}{}\protected@file@percent }
+\newlabel{}{{20}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {21}{\ignorespaces convergence over frequency. Even though there are no samples where the impedance is low, there is also a good accuracy.}}{5}{}\protected@file@percent }
+\newlabel{}{{21}{5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {22}{\ignorespaces Geometry. Surface conductivity=5.8e6 S/m}}{5}{}\protected@file@percent }
+\newlabel{}{{22}{5}}
+\gdef \@abspage@last{5}

@@ -11,6 +11,7 @@ import scipy.sparse.linalg as sslina
 import os
 import zmq
 import warnings
+import timeit
 
 import port
 import plotfuns
@@ -20,7 +21,11 @@ import MOR
 # pRead=lambda path:ut.pRead(oc, path)
 pRead=lambda path:ut.petscRead(path)
 
-path=dict();
+import os
+os.environ["PATH"] = os.environ["PATH"] + ";D:\\Ordnerordner\\Software\\pythonEnvironments\\python3_10\\lib\\site-packages\\kaleido\\executable\\"
+
+
+path=dict()
 path['workDir'] = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
 path['plots']   = path['workDir']+'_Documentation\\images\\'
 path['mats']    = path['workDir']+'mats\\'
@@ -29,12 +34,13 @@ path['sols']    = path['mats']+'sols\\'
 path['sysmats']    = path['mats']+'systemMats\\'
 
 
-nMax =20
-f_data= {'fmin' : 200e6,
-         'fmax' : 1e9,
-         'nmor' : 100,
-         'ntest': 10,
+nMax =100
+f_data= {'fmin' : 0.2e9,
+         'fmax' : 2e9,
+         'nmor' : 1000,
+         'ntest': 100,
          }
+accuracy=1e-10
 
 nPorts=2
 nModes={'TB':0,
@@ -42,11 +48,11 @@ nModes={'TB':0,
         'TE':0,
         'TM':10,}
 
-cond=5.8e6
+cond=5.8e3
 
-init_felis=False
-recreate_mats=False
-recreate_test=False
+init_felis=   True
+recreate_mats=True
+recreate_test=True
 
 ###############################################################################
 ###create constant matrices
@@ -80,6 +86,8 @@ Z=[]
 nBasiss=[]
 res_ROM=0
 solInds=[]
+
+timeStart=timeit.default_timer()
 for iBasis in range(nMax):
     ###############################################################################
     #offline stage:
@@ -110,10 +118,18 @@ for iBasis in range(nMax):
     err_Plot.append(nlina.norm(err_R_F))
     res_curves.append(res_ROM)
 
+    print('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot/np.max(res_Plot)))
+
     resDotsX.append(fAxis[solInds])
     resDotsY.append(res_ROM[solInds])
     Z.append(Znew)
     nBasiss.append(iBasis+1)
+
+    #convergence check
+    if resTot/np.max(res_Plot)<accuracy:
+        break
+timeMor=timeit.default_timer()-timeStart
+print('MOR took %f seconds' %timeMor)
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
@@ -124,27 +140,32 @@ for i in range(len(fAxisTest)):
 # plotfuns.plotLine (fig, fAxisOn, err_R_F,lineArgs={'name':'err','color':0})
 # plotfuns.plotLine (fig, fAxisOn, res_ROM,lineArgs={'name':'res','color':1})
 # plotfuns.showPlot(fig)
+# raise Exception('stop')
+plotconfig={'legendShow':True}
 
-fig=plotfuns.initPlot(title='res convergence',logX=True,logY=True,xName='nBasis',yName='val')
+fig=plotfuns.initPlot(title='res convergence',logX=False,logY=True,xName='Number of Basis Functions',yName='')
 plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
 plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
 plotfuns.showPlot(fig)
-# plotfuns.exportPlot(fig, 'const_conv_st2_adap_1', 'full', path=path['plots'],opts={'legendShow':True})
+plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
-raise Exception('stop')
-
-fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f',yName='Ohm')
-plotfuns.plotLine (fig, fAxis, np.abs(Z[-1])  ,lineArgs={'name':'MOR_ada','color':1} )
+# plotconfig={'legendShow':True,'xSuffix':''}
+fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
+plotfuns.plotLine (fig, fAxis, np.abs(Z[0])  ,lineArgs={'name':'MOR_1','color':1} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[1])  ,lineArgs={'name':'MOR_2','color':0} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[3])  ,lineArgs={'name':'MOR_4','color':2} )
+# plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':0} )
+# plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':1} )
 # plotfuns.plotLine (fig, fAxisOn, np.abs(ZLin)  ,lineArgs={'name':'MOR_lin','color':3} )
 # plotfuns.plotLine (fig, fAxisOn, np.abs(Zlin)  ,lineArgs={'name':'MOR_lin','color':0} )
 # plotfuns.plotLine (fig, fAxisOn, np.abs(Zada)  ,lineArgs={'name':'MOR_ada','color':1} )
-plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3} )
+plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
 plotfuns.showPlot(fig)
-# plotfuns.exportPlot(fig, 'sqcR_imp_ada1', 'full', path=path['plots'],opts={'legendShow':True})
+plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
 
 
 
-
+#, 'xTick': 0.2, 'yTick': 1}
 
 
 

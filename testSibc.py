@@ -20,7 +20,6 @@ import oct2py
 import os
 
 import port
-import plotfuns
 import MOR
 
 oc = oct2py.Oct2Py()

@@ -14,6 +14,7 @@ import zmq
 import port
 import utility as ut
 import warnings
+import timeit
 
 def getFelisConstants():
     eps  = 8.8541878e-12
@@ -89,15 +90,19 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
     if recreate_test:
         subprocess.call("del /q /s " + path['sols'] + "\\test*", shell=True)
 
+    runtimeTest=0
     for i in range(nTest):
         if recreate_test:
+            timeStart = timeit.default_timer()
             socket.send_string("solve: test_%d %f" % (i, fAxisTest[i]))
             message = socket.recv()
+            runtimeTest+=timeit.default_timer() - timeStart
             print(message)
         if i == 0:
             sols_test = pRead(path['sols'] + 'test_0')
         else:
             sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
+    print('runtime Felis for test data: %f' %runtimeTest)
     return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
 
 

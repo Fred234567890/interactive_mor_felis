@@ -19,6 +19,9 @@ import ast
 import pickle
 import pandas
 
+def listlog(vals, base=10):
+    return np.log(vals)/np.log(base).tolist()
+
 def logspace(start,end,n):
     return(np.logspace(np.log10(start),np.log10(end),int(n)))
 
@@ -218,8 +221,8 @@ def pRead(octaveInstance,absPath,cmplx=True,fExtension='.pmat'):
 def petscRead(filename, iscomplex=True, indices='int64', precision='float64'):
     if not '.pmat' in filename:
         filename=filename+'.pmat'
-        print('added .pmat to filename')
-        # warnings.warn('File extension .pmat was added to the filename, fix your code')
+        # print('added .pmat to filename')
+        warnings.warn('File extension .pmat was added to the filename, fix your code')
 
     import scipy.sparse as ssp
     if indices == 'int32':
