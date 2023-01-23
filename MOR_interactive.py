@@ -40,7 +40,7 @@ f_data= {'fmin' : 0.2e9,
          'nmor' : 1000,
          'ntest': 100,
          }
-accuracy=1e-10
+accuracy=1e-2
 
 nPorts=2
 nModes={'TB':0,
@@ -51,8 +51,8 @@ nModes={'TB':0,
 cond=5.8e3
 
 init_felis=   True
-recreate_mats=True
-recreate_test=True
+recreate_mats=False
+recreate_test=False
 
 ###############################################################################
 ###create constant matrices

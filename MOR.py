@@ -194,7 +194,116 @@ def podOnlineSt2(fAxis,U,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn):
     return (resTot,res_ROM,err_R_F,Z,uROM)
 
 
+# def nested_Gram_Schmidt(U,a):
+#     for i in range(np.shape(U)[1]):
+#         a -= np.dot(U[:,i],a)*U[:,i]
+#         a*=1/np.linalg.norm(a)
+#     return a
 
+def nested_QR(U,R,a):
+    if U==[]:
+        U,R=sslina(a)
+    else:
+        U,R=slina.qr_insert(U,R,a,np.shape(U)[1],which='col')
+    return (U,R)
+
+class Pod:
+    def __init__(self,fAxis,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn,nMOR):
+        self.fAxis=fAxis
+        self.ports=ports
+        self.Mats=Mats
+        self.factors=factors
+        self.RHSOn=RHSOn
+        self.fIndsTest=fIndsTest
+        self.SolsTest=SolsTest
+        self.JSrcOn=JSrcOn
+        self.U=[]
+        self.R=[]
+        self.res_ROM=np.zeros(len(fAxis))
+        self.err_R_F=np.zeros(len(fIndsTest))
+        self.Z=np.zeros(len(fAxis)).astype('complex')
+        self.uROM=np.zeros(len(fAxis)).astype('complex')
+        self.nMOR=nMOR
+        self.solInds=[]
+
+    def update_Classic(self,sols):
+        self.U,_,_=slina.svd(sols,full_matrices=False)
+        (_,res_ROM,err_R_F,Z,uROM)=podOnlineSt2(self.fAxis,self.U,self.ports,self.Mats,self.factors,self.RHSOn,self.fIndsTest,self.SolsTest,self.JSrcOn)
+        self.res_ROM=res_ROM
+        self.err_R_F=err_R_F
+        self.Z=Z
+        self.uROM=uROM
+
+
+    def update_Nested(self,newSol):
+        self.U,self.R=nested_QR(self.U,self.R,newSol)
+
+    def select_new_freq(self):
+        try:
+            selectIndAdaptive(self.nMOR,self.res_ROM,self.solInds)#)f_data['nmor'], res_ROM, solInds)
+        except Exception:
+            warnings.warn('No more frequencies to select')
+
+    def get_conv(self):
+        restot=np.linalg.norm(self.res_ROM)
+        return restot,self.res_ROM,self.err_R_F,
+
+
+
+def nested_pod(fAxis,U,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn,matsR):
+    Uh = U.conj().T
+    (res_ROM, err_P_F) = (np.zeros(len(fAxis)), np.zeros(len(fAxis)))
+    err_R_F = np.zeros(len(fIndsTest))
+    Z = np.zeros(len(fAxis)).astype('complex')
+    # ZFM=np.zeros(len(fAxis)).astype('complex')
+    # reduce Matrices
+    MatsR = []
+    for i in range(len(Mats)):
+        MatsR.append(Uh @ Mats[i] @ U)
+
+    for fInd in range(len(fAxis)):
+        f = fAxis[fInd]
+
+        # assemble AROM
+        for i in range(len(ports)):
+            ports[i].setFrequency(f)
+            ports[i].computeFactors()
+            if i == 0:
+                pMatR = ports[i].getReducedPortMat(Uh)
+            else:
+                pMatR += ports[i].getReducedPortMat(Uh)
+        for i in range(len(Mats)):
+            if i == 0:
+                AROM = MatsR[i] * factors[i](f)
+            else:
+                AROM += MatsR[i] * factors[i](f)
+        AROM += pMatR
+
+        # solve ROM
+        vMor = nlina.solve(AROM, Uh @ RHSOn[:, fInd])
+        uROM = (U @ vMor)  # [:,0]
+
+        # calculate error
+        if fInd in fIndsTest:
+            i = np.where(fIndsTest == fInd)[0][0]
+            err_R_F[i] = nlina.norm(uROM - SolsTest[:, i])
+
+        # calculate residual
+        for i in range(len(Mats)):
+            if i == 0:
+                RHSrom = factors[i](f) * (Mats[i] @ uROM)
+            else:
+                RHSrom += factors[i](f) * (Mats[i] @ uROM)
+        for i in range(len(ports)):
+            RHSrom += ports[i].multiplyVecPortMat(uROM)
+        res_ROM[fInd] = nlina.norm(RHSOn[:, fInd] - RHSrom)
+        resTot = nlina.norm(res_ROM)
+
+        # postprocess solution: impedance+sParams
+        Z[fInd] = impedance(uROM, JSrcOn[:, fInd])
+        # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
+
+    return (resTot, res_ROM, err_R_F, Z, uROM)
     
     
     
