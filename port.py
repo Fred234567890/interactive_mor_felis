@@ -7,6 +7,9 @@ Created on Fri Dec  2 12:24:06 2022
 import numpy as np
 import scipy as sc
 import scipy.sparse.linalg as sslina
+import timeit
+
+import utility as ut
 
 class Port:
     eps  = 8.8541878e-12 
@@ -29,7 +32,8 @@ class Port:
         fieldsTx=list ()
         # N=0
         for i in range (numModes) :
-            fieldsTx.append (matRead(path+Tx+'\\'+str (i)))
+            newField=sc.sparse.csc_matrix(matRead(path+Tx+'\\'+str (i)))
+            fieldsTx.append (newField)
             # if i==0: N=len (fieldsTx[0])
         return fieldsTx
     
@@ -143,10 +147,10 @@ class Port:
 
     
     def getReducedModeMat(self,ind,Uh):
-        #python: reduce runtime selecting the sice of the NNZ entries out of U in superior fun
+        #python: reduce runtime selecting the slice of the NNZ entries out of U in superior fun
         #c++:    reduce runtime by only iterating over the the elements where modeVec is nonzero
-        pu=Uh@(self.getModeVec (ind))#.toarray())
-        return pu*pu.conj().T  
+        pu=Uh@(self.getModeVec (ind))
+        return np.outer(pu,pu.conj())
         
     
     def getReducedPortMat(self,Uh):
@@ -154,21 +158,51 @@ class Port:
         for ind in range (1,self.getNumModes()) :
             A+= self.factors[ind] *self.getReducedModeMat (ind,Uh)
         return A
-    
+
+
+
     def MultiplyModeMat(self,ind,x):
         fac=self.factors [ind]
-        mVec=self.getModeVec (ind)
-        return mVec @ (fac * (mVec.T@x) )
-        
+        mVec=self.getModeVec (ind).data
+        return mVec * (fac * (np.dot(mVec.conj(),x)))
 
     def multiplyVecPortMat(self,x):
-        y = self.MultiplyModeMat(0,x)
-        for ind in range (1,self.getNumModes()) :
-            y+= self.MultiplyModeMat(ind,x)
+        x_short=x[self.getModeVec(0).indices]
+        y=np.zeros(np.shape(x)).astype('complex')
+        for ind in range (self.getNumModes()) :
+            y[self.getModeVec(0).indices]+= self.MultiplyModeMat(ind,x_short)
         return y
 
 
 
+    def getReducedModeMat_Nested(self,U_,uh_,ind):
+        modeVec=self.getModeVec(ind).data
+        return (uh_@modeVec)*(modeVec.conj().T@U_)
+
+    def getReducedPortMat_nested(self,U):
+        p_vec = np.zeros(np.shape(U)[1]).astype('complex')
+        if np.shape(U)[1]==1:
+            for i in range (self.getNumModes()):
+                p_vec+=self.factors[i]*self.getReducedModeMat_Nested(self.U_short,self.U_short[:,0].conj().T,i)
+        else:
+            # U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVec
+            for i in range (self.getNumModes()):
+                p_vec+=self.factors[i]*self.getReducedModeMat_Nested(self.U_short,self.U_short[:,-1].conj().T,i)
+        return p_vec
+
+    def setU(self,U):
+        self.U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVecs
+
+    # def add2ReducedPortMat_Rank1(self, uh,A=None):
+    #     if A==None:
+    #         A=self.getReducedModeMat(0,uh)
+    #         A.data*=0
+    #
+    #     uh_select = uh[0,self.getModeVec(0)]
+    #     for ind in range(self.getNumModes()):
+    #         modeVec = self.getModeVec(ind)
+    #         uh_select = uh[0, modeVec.indices]
+    #         ut.sparse_outer_product(self.factors[ind]*uh_select, modeVec.data, A)
 
 
 

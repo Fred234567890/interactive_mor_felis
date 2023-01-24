@@ -205,6 +205,42 @@ def centralDerivative(Y):
     Yderivative[:,[0,-1]]*=2
     return Yderivative
 
+def sparse_outer_product(a, b, sparsityStructureCsr=[],complex=True):
+    """
+    Computes the outer product of two vectors a and b
+    if sparsityStructureCsr is not given or an empty list
+    Parameters
+    ----------
+    a: sparse vector
+    b: sparse vector
+    complex: Boolean
+
+    Returns
+    Sparse Matrix
+
+    else:
+    Parameters
+    ----------
+    a: full vector
+    b: full vector
+    complex: Boolean
+    sparsityStructureCsr: sparse matrix in csr format with initialized sparsity structure
+
+    Returns
+    -------
+    """
+    if sparsityStructureCsr==[]:
+        if complex:
+            return a@b.conj().T
+        else:
+            return a@b.T
+    else:
+        if complex:
+            sparsityStructureCsr.data+=np.outer(a,b.conj())
+        else:
+            sparsityStructureCsr.data+=np.outer(a,b)
+
+
 ###############################################################################
 ###File reading
 

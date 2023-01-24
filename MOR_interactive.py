@@ -27,20 +27,20 @@ os.environ["PATH"] = os.environ["PATH"] + ";D:\\Ordnerordner\\Software\\pythonEn
 
 path=dict()
 path['workDir'] = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
-path['plots']   = path['workDir']+'_Documentation\\images\\'
+path['plots']   = path['workDir']+'_Documentation\\_new_images\\'
 path['mats']    = path['workDir']+'mats\\'
 path['ports']   = path['mats']+'ports\\'
 path['sols']    = path['mats']+'sols\\'
 path['sysmats']    = path['mats']+'systemMats\\'
 
 
-nMax =100
+nMax =50
 f_data= {'fmin' : 0.2e9,
          'fmax' : 2e9,
          'nmor' : 1000,
          'ntest': 100,
          }
-accuracy=1e-2
+accuracy=1e-20
 
 nPorts=2
 nModes={'TB':0,
@@ -50,7 +50,7 @@ nModes={'TB':0,
 
 cond=5.8e3
 
-init_felis=   True
+init_felis=   False
 recreate_mats=False
 recreate_test=False
 
@@ -88,34 +88,35 @@ res_ROM=0
 solInds=[]
 
 timeStart=timeit.default_timer()
+
+pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'])
 for iBasis in range(nMax):
     ###############################################################################
-    #offline stage:
+    #add new solutions:
     try:
-        MOR.selectIndAdaptive(f_data['nmor'],res_ROM,solInds)
+        fnew=pod.select_new_freq()
     except Exception:
         warnings.warn('No more frequencies to select')
         break
 
-    socket.send_string("solve: train_%d  %f" %(iBasis,fAxis[solInds[-1]]))
+    socket.send_string("solve: train_%d  %f" %(iBasis,fnew))
     message = socket.recv()
     print(message)
-
-    if iBasis == 0:
-        sols = pRead(path['sols'] + 'train_0')
-    else:
-        sols = np.append(sols, pRead(path['sols'] +'train_'+str(iBasis)), axis=1)
-
-    (U,s,V)=slina.svd(sols,full_matrices=False)
+    newSol = pRead(path['sols'] +'train_'+str(iBasis))
 
 
     ###############################################################################
-    #online stage:
+    #update
+    # pod.update_Classic(newSol)
+    pod.update_nested(newSol)
+    pod.print_time()
+    ###############################################################################
+    #post processing
+    resTot,errTot,res_ROM,err_R_F=pod.get_conv()
+    Znew=pod.get_Z()
 
-
-    (resTot,res_ROM,err_R_F,Znew,uMOR)=MOR.podOnlineSt2(fAxis,U,ports,Mats,factors,RHS,fIndsTest,sols_test,JSrc)
     res_Plot.append(resTot)
-    err_Plot.append(nlina.norm(err_R_F))
+    err_Plot.append(errTot)
     res_curves.append(res_ROM)
 
     print('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot/np.max(res_Plot)))
@@ -146,8 +147,8 @@ plotconfig={'legendShow':True}
 fig=plotfuns.initPlot(title='res convergence',logX=False,logY=True,xName='Number of Basis Functions',yName='')
 plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
 plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
-plotfuns.showPlot(fig)
-plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
+plotfuns.showPlot(fig,show=False)
+# plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
 # plotconfig={'legendShow':True,'xSuffix':''}
 fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
@@ -160,10 +161,15 @@ plotfuns.plotLine (fig, fAxis, np.abs(Z[3])  ,lineArgs={'name':'MOR_4','color':2
 # plotfuns.plotLine (fig, fAxisOn, np.abs(Zlin)  ,lineArgs={'name':'MOR_lin','color':0} )
 # plotfuns.plotLine (fig, fAxisOn, np.abs(Zada)  ,lineArgs={'name':'MOR_ada','color':1} )
 plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-plotfuns.showPlot(fig)
-plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
+plotfuns.showPlot(fig,show=False)
+# plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
 
 
+inds,times,names =pod.get_time_for_plot()
+fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
+plotfuns.plotLines (fig, inds, times,curveName=names)
+plotfuns.showPlot(fig,show=True)
+plotfuns.exportPlot(fig, 'CubeWire_time3', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,2.2]})
 
 #, 'xTick': 0.2, 'yTick': 1}
 

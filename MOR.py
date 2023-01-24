@@ -5,16 +5,18 @@ Created on Mon Dec  5 12:16:01 2022
 @author: Fred
 """
 
+import subprocess
+import timeit
+import warnings
+
 import numpy as np
 import numpy.linalg as nlina
 import scipy.linalg as slina
-import scipy.sparse.linalg as sslina
-import subprocess
 import zmq
+
 import port
 import utility as ut
-import warnings
-import timeit
+
 
 def getFelisConstants():
     eps  = 8.8541878e-12
@@ -202,21 +204,21 @@ def podOnlineSt2(fAxis,U,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn):
 
 def nested_QR(U,R,a):
     if U==[]:
-        U,R=sslina(a)
+        U,R=slina.qr(a,mode='economic')
     else:
         U,R=slina.qr_insert(U,R,a,np.shape(U)[1],which='col')
     return (U,R)
 
-class Pod:
-    def __init__(self,fAxis,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn,nMOR):
+class Pod_adaptive:
+    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,SolsTest,nMOR):
         self.fAxis=fAxis
         self.ports=ports
         self.Mats=Mats
         self.factors=factors
-        self.RHSOn=RHSOn
+        self.RHS=RHS
         self.fIndsTest=fIndsTest
         self.SolsTest=SolsTest
-        self.JSrcOn=JSrcOn
+        self.JSrc=JSrc
         self.U=[]
         self.R=[]
         self.res_ROM=np.zeros(len(fAxis))
@@ -225,14 +227,156 @@ class Pod:
         self.uROM=np.zeros(len(fAxis)).astype('complex')
         self.nMOR=nMOR
         self.solInds=[]
+        self.sols=[]
 
-    def update_Classic(self,sols):
-        self.U,_,_=slina.svd(sols,full_matrices=False)
-        (_,res_ROM,err_R_F,Z,uROM)=podOnlineSt2(self.fAxis,self.U,self.ports,self.Mats,self.factors,self.RHSOn,self.fIndsTest,self.SolsTest,self.JSrcOn)
+        self.MatsR=[]
+        self.pMatsR=[]
+        for i in range(len(fAxis)):
+            self.MatsR.append([])
+            self.pMatsR.append([])
+
+
+        self.times={
+            # 'time_mat_assemble_preloop':[0],
+            'mat_assemble':[],
+            'port_assemble1':[],
+            'port_assemble2':[],
+            'solve1':[],
+            'solve2':[],
+            'err':[],
+            'resPort':[],
+            'resMats':[],
+            'Z':[],
+        }
+        self.times_temp=self.times.copy()
+
+
+
+
+    def update_Classic(self,newSol):
+        if self.sols==[]:
+            self.sols=newSol
+        else:
+            self.sols=np.append(self.sols, newSol, axis=1)
+        self.U,_,_=slina.svd(self.sols,full_matrices=False)
+        (_,res_ROM,err_R_F,Z,uROM)=podOnlineSt2(self.fAxis,self.U,self.ports,self.Mats,self.factors,self.RHS,self.fIndsTest,self.SolsTest,self.JSrc)
         self.res_ROM=res_ROM
         self.err_R_F=err_R_F
         self.Z=Z
         self.uROM=uROM
+
+
+
+    def update_nested(self,newSol):
+
+        self.reset_times_temp()
+
+        if self.sols==[]:
+            self.sols=newSol
+        else:
+            self.sols=np.append(self.sols, newSol, axis=1)
+
+        self.U,self.R=nested_QR(self.U,self.R,newSol)
+
+        Uh=self.U.conj().T
+
+        MatsR = []
+        for i in range(len(self.Mats)):  #todo nested not exploited
+            MatsR.append(Uh @ self.Mats[i] @ self.U)
+
+        for i in range(len(self.ports)): #has to be done only once, not for every frequency
+            self.ports[i].setU(self.U)
+
+        for fInd in range(len(self.fAxis)):
+            f = self.fAxis[fInd]
+
+            #Port matrix creation:
+            new_row = np.zeros((1, np.shape(self.U)[1])).astype('complex')
+            for i in range(len(self.ports)):
+                start=timeit.default_timer()
+                self.ports[i].setFrequency(f)
+                self.ports[i].computeFactors()
+                self.add_time('port_assemble1', start)
+                start = timeit.default_timer()
+                new_row += self.ports[i].getReducedPortMat_nested(self.U)  #if only one basis function is used, a matrix is returned, otherwise a vector
+                self.add_time('port_assemble2', start)
+
+
+            if np.shape(self.pMatsR[fInd]) == (0,):
+                self.pMatsR[fInd] = new_row
+            else:
+                pNew = np.zeros(np.array(np.shape(self.pMatsR[fInd]))+1).astype('complex')
+                pNew[:-1, :-1] = self.pMatsR[fInd]
+                pNew[:, -1] = new_row.conj()
+                pNew[-1, :] = new_row
+                self.pMatsR[fInd] = pNew
+
+            # print('res: %f' %nlina.norm(self.pMatsR[fInd]-pMatR))
+            #end port matrix creation
+
+            start=timeit.default_timer()
+            #exploiting nested structure not necessary here:
+            for i in range(len(self.Mats)):
+                if i == 0:
+                    AROM = MatsR[i] * self.factors[i](f)
+                else:
+                    AROM += MatsR[i] * self.factors[i](f)
+            AROM += self.pMatsR[fInd]
+            self.add_time('mat_assemble', start)
+
+            #end exploiting nested structure not necessary here
+
+
+            start=timeit.default_timer()
+            vMor = nlina.solve(AROM, Uh @ self.RHS[:, fInd])
+            self.add_time('solve1', start)
+
+            start=timeit.default_timer()
+            uROM = (self.U @ vMor)  # [:,0]
+            self.add_time('solve2', start)
+
+            start=timeit.default_timer()
+            if fInd in self.fIndsTest:
+                i = np.where(self.fIndsTest == fInd)[0][0]
+                self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
+            self.add_time('err', start)
+
+            start=timeit.default_timer()
+            for i in range(len(self.Mats)):
+                if i == 0:
+                    RHSrom = self.Mats[i] @ (self.factors[i](f)*uROM)
+                else:
+                    RHSrom += self.Mats[i] @ (self.factors[i](f)*uROM)
+            self.add_time('resMats', start)
+
+            start=timeit.default_timer()
+            for i in range(len(self.ports)):
+                RHSrom += self.ports[i].multiplyVecPortMat(uROM)
+            self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
+            self.resTot = nlina.norm(self.res_ROM)
+            self.add_time('resPort', start)
+            # postprocess solution: impedance+sParams
+            start=timeit.default_timer()
+            self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
+            self.add_time('Z', start)
+            # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
+            #end todo nested not exploited
+        self.save_times()
+
+
+
+    def reset_times_temp(self):
+        for i in range(len(self.times_temp)):
+            self.times_temp[list(self.times_temp.keys())[i]]=0
+
+    def add_time(self, timeName, start):
+        self.times_temp[timeName]+=(timeit.default_timer() - start)
+
+    def save_times(self):
+        for i in range(len(self.times_temp)):
+            self.times[list(self.times_temp.keys())[i]].append(self.times_temp[list(self.times_temp.keys())[i]])
+
+        # self.times[timeName].append(timeit.default_timer() - start)
 
 
     def update_Nested(self,newSol):
@@ -242,13 +386,34 @@ class Pod:
         try:
             selectIndAdaptive(self.nMOR,self.res_ROM,self.solInds)#)f_data['nmor'], res_ROM, solInds)
         except Exception:
-            warnings.warn('No more frequencies to select')
+            raise Exception('No more frequencies to select')
+        return self.fAxis[self.solInds[-1]]
 
     def get_conv(self):
-        restot=np.linalg.norm(self.res_ROM)
-        return restot,self.res_ROM,self.err_R_F,
+        resTot=np.linalg.norm(self.res_ROM)
+        errTot=np.linalg.norm(self.err_R_F)
+        return resTot,errTot,self.res_ROM,self.err_R_F,
 
+    def get_Z(self):
+        return self.Z
 
+    def print_time(self):
+        for i in range(len(self.times)):
+            print('time_%s: %f' %(list(self.times.keys())[i],np.sum(list(self.times.values())[i])))
+
+    def get_time_for_plot(self):
+        #returns the times in a format for plotting
+        times=[]
+        names=[]
+        for i in range(len(self.times)):
+            if len(list(self.times.values())[i])>1:
+                times.append([])
+                names.append(list(self.times.keys())[i])
+                for j in range(len(list(self.times.values())[i])):
+                    times[i].append(list(self.times.values())[i][j])
+        times=np.array(times)
+        inds=np.cumsum(np.ones(np.shape(times)[1]))
+        return inds,times,names #=get_time_for_plot()
 
 def nested_pod(fAxis,U,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn,matsR):
     Uh = U.conj().T

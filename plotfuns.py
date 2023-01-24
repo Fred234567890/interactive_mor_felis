@@ -421,9 +421,9 @@ def exportPlot(fig,fileName,size,plotType=None,path=None,opts=dict()):
     
     fontLegend=fontSmall
     if numTracesWithName(fig)>3:
-        fontLegend=fontSmall*0.8
-    elif numTracesWithName(fig)>6:
         fontLegend=fontSmall*0.6
+    elif numTracesWithName(fig)>6:
+        fontLegend=fontSmall*0.4
         # ...
     elif numTracesWithName(fig)>9:
         opts['legendShow']=False
