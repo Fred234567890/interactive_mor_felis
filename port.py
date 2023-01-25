@@ -36,7 +36,8 @@ class Port:
             fieldsTx.append (newField)
             # if i==0: N=len (fieldsTx[0])
         return fieldsTx
-    
+
+
     
     def readModes(self):
         if self.numTE>0:
@@ -52,6 +53,8 @@ class Port:
         self.fieldsTS = Port.readModesTx (self.matRead,self.path,'TS',self.numTS)
         self.fieldsTE = Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
         self.fieldsTM = Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
+
+
 
         
  
@@ -84,23 +87,7 @@ class Port:
                 elif mType=='TM':
                     self.factors[modeInd]= -kappa(self.f)**2/gamma 
                  
-    
-    def getFactorOld(self,ind,f):
-         kappa=lambda f: 2*np.pi*f/self.c0
-         mType=self.getModeType(ind) 
-         if  mType=='TB' or mType=='TS': 
-             return kappa(f)
-         
-         den=kappa (self.getCutoff(ind)) **2-kappa(f)**2
-         if den>=0:
-             gamma=np.sqrt (den) 
-         else:
-             gamma=1j*np.sqrt (-den) 
-             
-         if mType=='TE':
-            return gamma 
-         elif mType=='TM':
-             return -kappa(f)**2/gamma 
+
          
             
     def getNumModes(self):
@@ -133,7 +120,7 @@ class Port:
     
     def getModeVec(self,ind):
         return (self.fieldsTB+self.fieldsTS+self.fieldsTE+self.fieldsTM)[ind]
-    
+
     
     def getModeMat(self,ind):
         return self.getModeVec (ind) *self.getModeVec (ind) .T  
@@ -144,21 +131,6 @@ class Port:
         for ind in range (1,self.getNumModes()) :
             A+= self.factors[ind] *self.getModeMat (ind)
         return A
-
-    
-    def getReducedModeMat(self,ind,Uh):
-        #python: reduce runtime selecting the slice of the NNZ entries out of U in superior fun
-        #c++:    reduce runtime by only iterating over the the elements where modeVec is nonzero
-        pu=Uh@(self.getModeVec (ind))
-        return np.outer(pu,pu.conj())
-        
-    
-    def getReducedPortMat(self,Uh):
-        A = self.factors[0] *self.getReducedModeMat (0,Uh)
-        for ind in range (1,self.getNumModes()) :
-            A+= self.factors[ind] *self.getReducedModeMat (ind,Uh)
-        return A
-
 
 
     def MultiplyModeMat(self,ind,x):
@@ -174,20 +146,39 @@ class Port:
         return y
 
 
+    def getReducedModeMat(self,ind,Uh):
+        #python: reduce runtime selecting the slice of the NNZ entries out of U in superior fun
+        #c++:    reduce runtime by only iterating over the the elements where modeVec is nonzero
+        pu=Uh@(self.getModeVec (ind))
+        return np.outer(pu,pu.conj())
+        
+    
+    def getReducedPortMat(self,Uh):
+        A = self.factors[0] *self.getReducedModeMat (0,Uh)
+        for ind in range (1,self.getNumModes()) :
+            A+= self.factors[ind] *self.getReducedModeMat (ind,Uh)
+        return A
+
 
     def getReducedModeMat_Nested(self,U_,uh_,ind):
         modeVec=self.getModeVec(ind).data
+
         return (uh_@modeVec)*(modeVec.conj().T@U_)
 
     def getReducedPortMat_nested(self,U):
-        p_vec = np.zeros(np.shape(U)[1]).astype('complex')
+        n=np.shape(U)[1]
+        p_vec = np.zeros(2*n).astype('complex')
         if np.shape(U)[1]==1:
             for i in range (self.getNumModes()):
                 p_vec+=self.factors[i]*self.getReducedModeMat_Nested(self.U_short,self.U_short[:,0].conj().T,i)
         else:
             # U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVec
             for i in range (self.getNumModes()):
-                p_vec+=self.factors[i]*self.getReducedModeMat_Nested(self.U_short,self.U_short[:,-1].conj().T,i)
+                # print('modenr: %d, modetype: %s'%(i,self.getModeType(i)))
+                # p_matRef=self.getReducedModeMat(i,U.conj().T)
+                p_vecTemp=self.getReducedModeMat_Nested(self.U_short,self.U_short[:,-1].conj().T,i)
+                p_vec[0:n]+=self.factors[i]*p_vecTemp
+                p_vec[n:2*n]+=self.factors[i]*p_vecTemp.conj()
         return p_vec
 
     def setU(self,U):

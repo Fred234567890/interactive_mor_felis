@@ -35,8 +35,8 @@ path['sysmats']    = path['mats']+'systemMats\\'
 
 
 nMax =50
-f_data= {'fmin' : 0.2e9,
-         'fmax' : 2e9,
+f_data= {'fmin' : 0.6e9,
+         'fmax' : 6e9,
          'nmor' : 1000,
          'ntest': 100,
          }
@@ -45,8 +45,8 @@ accuracy=1e-20
 nPorts=2
 nModes={'TB':0,
         'TS':0,
-        'TE':0,
-        'TM':10,}
+        'TE':5,
+        'TM':5,}
 
 cond=5.8e3
 
@@ -109,11 +109,11 @@ for iBasis in range(nMax):
     #update
     # pod.update_Classic(newSol)
     pod.update_nested(newSol)
-    pod.print_time()
+    # pod.print_time()
     ###############################################################################
     #post processing
     resTot,errTot,res_ROM,err_R_F=pod.get_conv()
-    Znew=pod.get_Z()
+    Znew=np.array(pod.get_Z()).astype('complex')
 
     res_Plot.append(resTot)
     err_Plot.append(errTot)
@@ -132,6 +132,8 @@ for iBasis in range(nMax):
 timeMor=timeit.default_timer()-timeStart
 print('MOR took %f seconds' %timeMor)
 
+raise Exception()
+
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
     ZRef[i]=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]])
@@ -147,14 +149,14 @@ plotconfig={'legendShow':True}
 fig=plotfuns.initPlot(title='res convergence',logX=False,logY=True,xName='Number of Basis Functions',yName='')
 plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
 plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
-plotfuns.showPlot(fig,show=False)
+plotfuns.showPlot(fig,show=True)
 # plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
 # plotconfig={'legendShow':True,'xSuffix':''}
 fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
 plotfuns.plotLine (fig, fAxis, np.abs(Z[0])  ,lineArgs={'name':'MOR_1','color':1} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[1])  ,lineArgs={'name':'MOR_2','color':0} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[3])  ,lineArgs={'name':'MOR_4','color':2} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[5])  ,lineArgs={'name':'MOR_6','color':0} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[20])  ,lineArgs={'name':'MOR_21','color':2} )
 # plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':0} )
 # plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':1} )
 # plotfuns.plotLine (fig, fAxisOn, np.abs(ZLin)  ,lineArgs={'name':'MOR_lin','color':3} )
@@ -169,7 +171,7 @@ inds,times,names =pod.get_time_for_plot()
 fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
 plotfuns.plotLines (fig, inds, times,curveName=names)
 plotfuns.showPlot(fig,show=True)
-plotfuns.exportPlot(fig, 'CubeWire_time3', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,2.2]})
+# plotfuns.exportPlot(fig, 'const_time3', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,2.7]})
 
 #, 'xTick': 0.2, 'yTick': 1}
 

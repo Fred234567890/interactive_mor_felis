@@ -291,27 +291,39 @@ class Pod_adaptive:
             f = self.fAxis[fInd]
 
             #Port matrix creation:
-            new_row = np.zeros((1, np.shape(self.U)[1])).astype('complex')
             for i in range(len(self.ports)):
                 start=timeit.default_timer()
                 self.ports[i].setFrequency(f)
                 self.ports[i].computeFactors()
                 self.add_time('port_assemble1', start)
                 start = timeit.default_timer()
-                new_row += self.ports[i].getReducedPortMat_nested(self.U)  #if only one basis function is used, a matrix is returned, otherwise a vector
+                if i == 0:
+                    new_vals = self.ports[i].getReducedPortMat_nested(self.U)
+                else:
+                    new_vals += self.ports[i].getReducedPortMat_nested(self.U)  #if only one basis function is used, a matrix is returned, otherwise a vector
                 self.add_time('port_assemble2', start)
 
 
             if np.shape(self.pMatsR[fInd]) == (0,):
-                self.pMatsR[fInd] = new_row
+                self.pMatsR[fInd] = np.array([[new_vals[0]]])
             else:
-                pNew = np.zeros(np.array(np.shape(self.pMatsR[fInd]))+1).astype('complex')
+                n=np.shape(self.pMatsR[fInd])[0]+1
+                pNew = np.zeros((n,n)).astype('complex')
                 pNew[:-1, :-1] = self.pMatsR[fInd]
-                pNew[:, -1] = new_row.conj()
-                pNew[-1, :] = new_row
+                pNew[:, -1] = new_vals[n:]
+                pNew[-1, :] = new_vals[:n]
                 self.pMatsR[fInd] = pNew
 
-            # print('res: %f' %nlina.norm(self.pMatsR[fInd]-pMatR))
+            if 0:
+                #check port matrix creation
+                for i in range(len(self.ports)):
+                    self.ports[i].setFrequency(f)
+                    self.ports[i].computeFactors()
+                    if i == 0:
+                        pMatRef = self.ports[i].getReducedPortMat(Uh)
+                    else:
+                        pMatRef += self.ports[i].getReducedPortMat(Uh)
+                print('size basis (%d), find (%d), res portmats: %f' %(np.shape(self.U)[1],fInd,nlina.norm(self.pMatsR[fInd]-pMatRef)))
             #end port matrix creation
 
             start=timeit.default_timer()
@@ -341,20 +353,9 @@ class Pod_adaptive:
                 self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
             self.add_time('err', start)
 
-            start=timeit.default_timer()
-            for i in range(len(self.Mats)):
-                if i == 0:
-                    RHSrom = self.Mats[i] @ (self.factors[i](f)*uROM)
-                else:
-                    RHSrom += self.Mats[i] @ (self.factors[i](f)*uROM)
-            self.add_time('resMats', start)
+            self.residual_estimation(fInd, uROM)
 
-            start=timeit.default_timer()
-            for i in range(len(self.ports)):
-                RHSrom += self.ports[i].multiplyVecPortMat(uROM)
-            self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
-            self.resTot = nlina.norm(self.res_ROM)
-            self.add_time('resPort', start)
+
             # postprocess solution: impedance+sParams
             start=timeit.default_timer()
             self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
@@ -362,6 +363,49 @@ class Pod_adaptive:
             # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
             #end todo nested not exploited
         self.save_times()
+        
+        
+    def set_residual_indices(self,residual_indices):
+        self.residual_indices=residual_indices
+        self.Mats_res=[]
+        for i in range(len(self.Mats)):
+            self.Mats_res.append(self.Mats[i][residual_indices,:])
+
+    def residual_estimation(self, fInd, uROM):
+        f = self.fAxis[fInd]
+        start = timeit.default_timer()
+        for i in range(len(self.Mats)):
+            if i == 0:
+                RHSrom = self.Mats[i] @ (self.factors[i](f) * uROM)
+            else:
+                RHSrom += self.Mats[i] @ (self.factors[i](f) * uROM)
+        self.add_time('resMats', start)
+
+        start = timeit.default_timer()
+        for i in range(len(self.ports)):
+            RHSrom += self.ports[i].multiplyVecPortMat(uROM)
+
+        self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
+        self.resTot = nlina.norm(self.res_ROM)
+        self.add_time('resPort', start)
+
+    def residual_estimation_orig(self, fInd, uROM):
+        f=self.fAxis[fInd]
+        start=timeit.default_timer()
+        for i in range(len(self.Mats)):
+            if i == 0:
+                RHSrom = self.Mats[i] @ (self.factors[i](f)*uROM)
+            else:
+                RHSrom += self.Mats[i] @ (self.factors[i](f)*uROM)
+        self.add_time('resMats', start)
+
+        start=timeit.default_timer()
+        for i in range(len(self.ports)):
+            RHSrom += self.ports[i].multiplyVecPortMat(uROM)
+            
+        self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
+        self.resTot = nlina.norm(self.res_ROM)
+        self.add_time('resPort', start)
 
 
 

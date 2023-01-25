@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2022.7.6)  18 JAN 2023 14:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2022.7.6)  25 JAN 2023 13:06
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1295,12 +1295,6 @@ LaTeX Warning: Label `' multiply defined.
 
 LaTeX Warning: Label `' multiply defined.
 
-
-LaTeX Warning: Label `' multiply defined.
-
-
-LaTeX Warning: Label `' multiply defined.
-
 )
 \openout1 = `MOR_Evaluation.aux'.
 
@@ -1636,12 +1630,12 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 198--199
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<./images//const_conv_st2_broad1.pdf, id=98, 1927.2pt x 722.7pt>
+<./images//const_conv_st2_broad1.pdf, id=98, 1445.4pt x 722.7pt>
 File: ./images//const_conv_st2_broad1.pdf Graphic file (type pdf)
 <use ./images//const_conv_st2_broad1.pdf>
 Package pdftex.def Info: ./images//const_conv_st2_broad1.pdf  used on input lin
 e 205.
-(pdftex.def)             Requested size: 258.0pt x 96.74425pt.
+(pdftex.def)             Requested size: 258.0pt x 128.99968pt.
 
 Overfull \hbox (6.0pt too wide) in paragraph at lines 205--206
  [][] 
@@ -1705,23 +1699,68 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 240--241
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-) (./MOR_st3.tex) [3 <./images//sqc_conv_st2_adap_2.pdf> <./images//runtimes_1.
-PNG> <./images//sqcR_conv_st2_1.pdf> <./images//sqcR_conv_st2_2.pdf>] [4 <./ima
-ges//sqcR_conv_st2_adap_1.pdf> <./images//sqcR_conv_st2_broad1.pdf> <./images//
-sqcR_conv_st2_broad2.pdf> <./images//sqcR_conv_st2_adap_broad1.pdf> <./images//
-sqcR_conv_st2_adap_broad2.pdf> <./images//sqcR_imp_ada1.pdf> <./images//Constri
-ctionGeo.PNG>] [5 <./images//const_conv_st2_broad1.pdf> <./images//const_imp_Fe
-lis_Py2.pdf> <./images//const_conv_st2_adap_1.pdf> <./images//const_conv_st2_ad
-ap_broad1.pdf> <./images//CubeWireGeo.PNG>] (./MOR_Evaluation.aux)
+) [3 <./images//sqc_conv_st2_adap_2.pdf> <./images//runtimes_1.PNG> <./images//
+sqcR_conv_st2_1.pdf> <./images//sqcR_conv_st2_2.pdf>] (./MOR_Interactive.tex
+<./images//CubeWire_time_merge1.PNG, id=143, 1927.2pt x 963.6pt>
+File: ./images//CubeWire_time_merge1.PNG Graphic file (type png)
+<use ./images//CubeWire_time_merge1.PNG>
+Package pdftex.def Info: ./images//CubeWire_time_merge1.PNG  used on input line
+ 11.
+(pdftex.def)             Requested size: 258.0pt x 128.99234pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 11--12
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<./images//sqav_time_merge1.PNG, id=144, 1927.2pt x 963.6pt>
+File: ./images//sqav_time_merge1.PNG Graphic file (type png)
+<use ./images//sqav_time_merge1.PNG>
+Package pdftex.def Info: ./images//sqav_time_merge1.PNG  used on input line 19.
+
+(pdftex.def)             Requested size: 258.0pt x 128.99234pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 19--20
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<./images//const_time_merge1.PNG, id=145, 1927.2pt x 963.6pt>
+File: ./images//const_time_merge1.PNG Graphic file (type png)
+<use ./images//const_time_merge1.PNG>
+Package pdftex.def Info: ./images//const_time_merge1.PNG  used on input line 28
+.
+(pdftex.def)             Requested size: 258.0pt x 128.99234pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 28--29
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+) [4 <./images//sqcR_conv_st2_adap_1.pdf> <./images//sqcR_conv_st2_broad1.pdf> 
+<./images//sqcR_conv_st2_broad2.pdf> <./images//sqcR_conv_st2_adap_broad1.pdf> 
+<./images//sqcR_conv_st2_adap_broad2.pdf> <./images//sqcR_imp_ada1.pdf>]
+[5 <./images//ConstrictionGeo.PNG> <./images//const_conv_st2_broad1.pdf> <./ima
+ges//const_imp_Felis_Py2.pdf> <./images//const_conv_st2_adap_1.pdf> <./images//
+const_conv_st2_adap_broad1.pdf> <./images//CubeWireGeo.PNG>] [6
+
+ <./images//CubeWire_time_merge1.PNG> <./images//sqav_time_merge1.PNG> <./image
+s//const_time_merge1.PNG>] (./MOR_Evaluation.aux)
 
 LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 37932 strings out of 478027
- 943268 string characters out of 5842750
- 1430044 words of memory out of 5000000
- 55942 multiletter control sequences out of 15000+600000
+ 37959 strings out of 478027
+ 944202 string characters out of 5842750
+ 1430053 words of memory out of 5000000
+ 55966 multiletter control sequences out of 15000+600000
  501957 words of font info for 92 fonts, out of 8000000 for 9000
  1144 hyphenation exceptions out of 8191
  115i,8n,118p,797b,520s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1732,10 +1771,10 @@ public/amsfonts/cm/cmr10.pfb><c:/texlive/2022/texmf-dist/fonts/type1/public/ams
 fonts/cm/cmr7.pfb><c:/texlive/2022/texmf-dist/fonts/type1/public/amsfonts/cm/cm
 sy7.pfb><c:/texlive/2022/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texliv
 e/2022/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on MOR_Evaluation.pdf (5 pages, 407601 bytes).
+Output written on MOR_Evaluation.pdf (6 pages, 1254310 bytes).
 PDF statistics:
- 309 PDF objects out of 1000 (max. 8388607)
- 221 compressed objects within 3 object streams
+ 318 PDF objects out of 1000 (max. 8388607)
+ 223 compressed objects within 3 object streams
  0 named destinations out of 1000 (max. 500000)
- 123 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 138 words of extra memory for PDF output out of 10000 (max. 10000000)
 
