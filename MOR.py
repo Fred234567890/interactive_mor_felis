@@ -370,42 +370,49 @@ class Pod_adaptive:
         self.Mats_res=[]
         for i in range(len(self.Mats)):
             self.Mats_res.append(self.Mats[i][residual_indices,:])
+        tempMat=np.sum(self.Mats_res)
+        self.inds_u_res=np.unique(tempMat.indices)
+        for i in range(len(self.Mats)):
+            self.Mats_res[i]=self.Mats_res[i][:,self.inds_u_res]
 
     def residual_estimation(self, fInd, uROM):
         f = self.fAxis[fInd]
         start = timeit.default_timer()
+        uROM_short= uROM[self.inds_u_res]
         for i in range(len(self.Mats)):
             if i == 0:
-                RHSrom = self.Mats[i] @ (self.factors[i](f) * uROM)
+                RHSrom = self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
             else:
-                RHSrom += self.Mats[i] @ (self.factors[i](f) * uROM)
+                RHSrom += self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
         self.add_time('resMats', start)
 
         start = timeit.default_timer()
         for i in range(len(self.ports)):
-            RHSrom += self.ports[i].multiplyVecPortMat(uROM)
+            RHSrom += self.ports[i].multiplyVecPortMat(uROM)[self.residual_indices]
 
-        self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
+        self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)
         self.resTot = nlina.norm(self.res_ROM)
         self.add_time('resPort', start)
-
-    def residual_estimation_orig(self, fInd, uROM):
-        f=self.fAxis[fInd]
-        start=timeit.default_timer()
-        for i in range(len(self.Mats)):
-            if i == 0:
-                RHSrom = self.Mats[i] @ (self.factors[i](f)*uROM)
-            else:
-                RHSrom += self.Mats[i] @ (self.factors[i](f)*uROM)
-        self.add_time('resMats', start)
-
-        start=timeit.default_timer()
-        for i in range(len(self.ports)):
-            RHSrom += self.ports[i].multiplyVecPortMat(uROM)
-            
-        self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
-        self.resTot = nlina.norm(self.res_ROM)
-        self.add_time('resPort', start)
+    #
+    #
+    #
+    # def residual_estimation_orig(self, fInd, uROM):
+    #     f=self.fAxis[fInd]
+    #     start=timeit.default_timer()
+    #     for i in range(len(self.Mats)):
+    #         if i == 0:
+    #             RHSrom = self.Mats[i] @ (self.factors[i](f)*uROM)
+    #         else:
+    #             RHSrom += self.Mats[i] @ (self.factors[i](f)*uROM)
+    #     self.add_time('resMats', start)
+    #
+    #     start=timeit.default_timer()
+    #     for i in range(len(self.ports)):
+    #         RHSrom += self.ports[i].multiplyVecPortMat(uROM)
+    #
+    #     self.res_ROM[fInd] = nlina.norm(self.RHS[:, fInd] - RHSrom)
+    #     self.resTot = nlina.norm(self.res_ROM)
+    #     self.add_time('resPort', start)
 
 
 

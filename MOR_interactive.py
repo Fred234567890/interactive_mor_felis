@@ -90,6 +90,7 @@ solInds=[]
 timeStart=timeit.default_timer()
 
 pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'])
+pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/2)).astype(int))
 for iBasis in range(nMax):
     ###############################################################################
     #add new solutions:
@@ -132,7 +133,6 @@ for iBasis in range(nMax):
 timeMor=timeit.default_timer()-timeStart
 print('MOR took %f seconds' %timeMor)
 
-raise Exception()
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
@@ -157,11 +157,6 @@ fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z 
 plotfuns.plotLine (fig, fAxis, np.abs(Z[0])  ,lineArgs={'name':'MOR_1','color':1} )
 plotfuns.plotLine (fig, fAxis, np.abs(Z[5])  ,lineArgs={'name':'MOR_6','color':0} )
 plotfuns.plotLine (fig, fAxis, np.abs(Z[20])  ,lineArgs={'name':'MOR_21','color':2} )
-# plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':0} )
-# plotfuns.plotLine (fig, fAxis, np.abs(Z[31])  ,lineArgs={'name':'MOR_32','color':1} )
-# plotfuns.plotLine (fig, fAxisOn, np.abs(ZLin)  ,lineArgs={'name':'MOR_lin','color':3} )
-# plotfuns.plotLine (fig, fAxisOn, np.abs(Zlin)  ,lineArgs={'name':'MOR_lin','color':0} )
-# plotfuns.plotLine (fig, fAxisOn, np.abs(Zada)  ,lineArgs={'name':'MOR_ada','color':1} )
 plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
 plotfuns.showPlot(fig,show=False)
 # plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
