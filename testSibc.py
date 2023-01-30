@@ -43,19 +43,23 @@ from multiprocessing import Pool, TimeoutError
 import time
 import os
 
-def f(x):
-    return x*x
+def f(i,arr):
+    arr[i]=i**2
 
 if __name__ == '__main__':
-    # start 4 worker processes
-    with Pool(processes=4) as pool:
+    manager=mp.Manager()
+    arr=manager.list(np.zeros(10).tolist())
+    p=[]
+    for i in range(10):
+        p.append(mp.Process(target=f, args=(i, arr)))
+        print('start',i)
+        p[i].start()
 
-        # print "[0, 1, 4,..., 81]"
-        print(pool.map(f, range(10)))
+    for i in range(10):
+        p[i].join()
 
-        # print same numbers in arbitrary order
-        for i in pool.imap_unordered(f, range(10)):
-            print(i)
+    print(arr)
+
 
 
 
