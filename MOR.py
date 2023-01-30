@@ -286,44 +286,58 @@ class Pod_adaptive:
 
         for i in range(len(self.ports)): #has to be done only once, not for every frequency
             self.ports[i].setU(self.U)
+            start=timeit.default_timer()
+            self.ports[i].create_reduced_modeMats()
+            self.add_time('port_assemble1', start)
 
         for fInd in range(len(self.fAxis)):
             f = self.fAxis[fInd]
 
             #Port matrix creation:
+            # for i in range(len(self.ports)):
+            #     start=timeit.default_timer()
+            #     self.ports[i].setFrequency(f)
+            #     self.ports[i].computeFactors()
+            #     self.add_time('port_assemble1', start)
+            #     start = timeit.default_timer()
+            #     if i == 0:
+            #         new_vals = self.ports[i].getReducedPortMat_nested(self.U)
+            #     else:
+            #         new_vals += self.ports[i].getReducedPortMat_nested(self.U)  #if only one basis function is used, a matrix is returned, otherwise a vector
+            #     self.add_time('port_assemble2', start)
+            #
+            #
+            # if np.shape(self.pMatsR[fInd]) == (0,):
+            #     self.pMatsR[fInd] = np.array([[new_vals[0]]])
+            # else:
+            #     n=np.shape(self.pMatsR[fInd])[0]+1
+            #     pNew = np.zeros((n,n)).astype('complex')
+            #     pNew[:-1, :-1] = self.pMatsR[fInd]
+            #     pNew[:, -1] = new_vals[n:]
+            #     pNew[-1, :] = new_vals[:n]
+            #     self.pMatsR[fInd] = pNew
+            #
+            # if 0:
+            #     #check port matrix creation
+            #     for i in range(len(self.ports)):
+            #         self.ports[i].setFrequency(f)
+            #         self.ports[i].computeFactors()
+            #         if i == 0:
+            #             pMatRef = self.ports[i].getReducedPortMat(Uh)
+            #         else:
+            #             pMatRef += self.ports[i].getReducedPortMat(Uh)
+            #     print('size basis (%d), find (%d), res portmats: %f' %(np.shape(self.U)[1],fInd,nlina.norm(self.pMatsR[fInd]-pMatRef)))
+
+            start=timeit.default_timer()
             for i in range(len(self.ports)):
-                start=timeit.default_timer()
+                start = timeit.default_timer()
                 self.ports[i].setFrequency(f)
                 self.ports[i].computeFactors()
-                self.add_time('port_assemble1', start)
-                start = timeit.default_timer()
                 if i == 0:
-                    new_vals = self.ports[i].getReducedPortMat_nested(self.U)
+                    portMat = self.ports[i].getReducedPortMat(Uh)
                 else:
-                    new_vals += self.ports[i].getReducedPortMat_nested(self.U)  #if only one basis function is used, a matrix is returned, otherwise a vector
-                self.add_time('port_assemble2', start)
-
-
-            if np.shape(self.pMatsR[fInd]) == (0,):
-                self.pMatsR[fInd] = np.array([[new_vals[0]]])
-            else:
-                n=np.shape(self.pMatsR[fInd])[0]+1
-                pNew = np.zeros((n,n)).astype('complex')
-                pNew[:-1, :-1] = self.pMatsR[fInd]
-                pNew[:, -1] = new_vals[n:]
-                pNew[-1, :] = new_vals[:n]
-                self.pMatsR[fInd] = pNew
-
-            if 0:
-                #check port matrix creation
-                for i in range(len(self.ports)):
-                    self.ports[i].setFrequency(f)
-                    self.ports[i].computeFactors()
-                    if i == 0:
-                        pMatRef = self.ports[i].getReducedPortMat(Uh)
-                    else:
-                        pMatRef += self.ports[i].getReducedPortMat(Uh)
-                print('size basis (%d), find (%d), res portmats: %f' %(np.shape(self.U)[1],fInd,nlina.norm(self.pMatsR[fInd]-pMatRef)))
+                    portMat += self.ports[i].getReducedPortMat(Uh)  #if only one basis function is used, a matrix is returned, otherwise a vector
+            self.add_time('port_assemble2', start)
             #end port matrix creation
 
             start=timeit.default_timer()
@@ -333,7 +347,7 @@ class Pod_adaptive:
                     AROM = MatsR[i] * self.factors[i](f)
                 else:
                     AROM += MatsR[i] * self.factors[i](f)
-            AROM += self.pMatsR[fInd]
+            AROM += portMat
             self.add_time('mat_assemble', start)
 
             #end exploiting nested structure not necessary here
@@ -390,9 +404,10 @@ class Pod_adaptive:
         for i in range(len(self.ports)):
             RHSrom += self.ports[i].multiplyVecPortMat(uROM)[self.residual_indices]
 
+        self.add_time('resPort', start)
         self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)
         self.resTot = nlina.norm(self.res_ROM)
-        self.add_time('resPort', start)
+        # self.add_time('resPort', start)
     #
     #
     #

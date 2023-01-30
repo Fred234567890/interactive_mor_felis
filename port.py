@@ -49,10 +49,10 @@ class Port:
         else:
             self.cutoffsTM=[]
         
-        self.fieldsTB = list() #readModesTx(self,'TB', self.numTB) 
-        self.fieldsTS = Port.readModesTx (self.matRead,self.path,'TS',self.numTS)
-        self.fieldsTE = Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
-        self.fieldsTM = Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
+        self.fields = list() #readModesTx(self,'TB', self.numTB)
+        self.fields+=Port.readModesTx (self.matRead,self.path,'TS',self.numTS)
+        self.fields+=Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
+        self.fields+=Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
 
 
 
@@ -119,8 +119,12 @@ class Port:
         
     
     def getModeVec(self,ind):
-        return (self.fieldsTB+self.fieldsTS+self.fieldsTE+self.fieldsTM)[ind]
+        return self.fields[ind]
 
+
+
+    def getReducedModeMat(self,ind):
+        return self.fields_reduced[ind]
     
     def getModeMat(self,ind):
         return self.getModeVec (ind) *self.getModeVec (ind) .T  
@@ -138,7 +142,7 @@ class Port:
         mVec=self.getModeVec (ind).data
         return mVec * (fac * (np.dot(mVec.conj(),x)))
 
-    def multiplyVecPortMat(self,x):
+    def multiplyVecPortMat(self,x):  #todo: exploit the rank 1 matrix property for the multiplication
         x_short=x[self.getModeVec(0).indices]
         y=np.zeros(np.shape(x)).astype('complex')
         for ind in range (self.getNumModes()) :
@@ -146,17 +150,26 @@ class Port:
         return y
 
 
-    def getReducedModeMat(self,ind,Uh):
+    def getReducedModeMat_old(self,ind,Uh):
         #python: reduce runtime selecting the slice of the NNZ entries out of U in superior fun
         #c++:    reduce runtime by only iterating over the the elements where modeVec is nonzero
         pu=Uh@(self.getModeVec (ind))
         return np.outer(pu,pu.conj())
-        
+
+    def create_reduced_modeMats(self):
+        self.fields_reduced = list()
+        Uh=self.U.T.conj()
+        for ind in range(self.getNumModes()):
+            pu = Uh @ (self.getModeVec(ind))
+            self.fields_reduced.append(np.outer(pu,pu.conj()))
     
     def getReducedPortMat(self,Uh):
-        A = self.factors[0] *self.getReducedModeMat (0,Uh)
+        A = self.factors[0] *self.getReducedModeMat (0)
+        # refMat=self.getReducedModeMat_old (0,Uh)
         for ind in range (1,self.getNumModes()) :
-            A+= self.factors[ind] *self.getReducedModeMat (ind,Uh)
+            newMat=self.getReducedModeMat (ind)
+            # refMat=self.getReducedModeMat_old (ind,Uh)
+            A+= self.factors[ind] *newMat
         return A
 
 
@@ -183,6 +196,7 @@ class Port:
 
     def setU(self,U):
         self.U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVecs
+        self.U=U
 
     # def add2ReducedPortMat_Rank1(self, uh,A=None):
     #     if A==None:
