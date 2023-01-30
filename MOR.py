@@ -235,7 +235,6 @@ class Pod_adaptive:
             self.MatsR.append([])
             self.pMatsR.append([])
 
-
         self.times={
             # 'time_mat_assemble_preloop':[0],
             'mat_assemble':[],
@@ -284,11 +283,13 @@ class Pod_adaptive:
         for i in range(len(self.Mats)):  #todo nested not exploited
             MatsR.append(Uh @ self.Mats[i] @ self.U)
 
-        for i in range(len(self.ports)): #has to be done only once, not for every frequency
+        for i in range(len(self.ports)):
             self.ports[i].setU(self.U)
             start=timeit.default_timer()
             self.ports[i].create_reduced_modeMats()
             self.add_time('port_assemble1', start)
+
+
 
         for fInd in range(len(self.fAxis)):
             f = self.fAxis[fInd]
@@ -352,10 +353,20 @@ class Pod_adaptive:
 
             #end exploiting nested structure not necessary here
 
+            # start=timeit.default_timer()
+            # self.add_time('projectR', start)
+
+
 
             start=timeit.default_timer()
-            vMor = nlina.solve(AROM, Uh @ self.RHS[:, fInd])
+            rhs_red=Uh @ self.RHS[:, fInd]
+            AQ,AR=slina.qr(AROM)
+            vMor=slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
             self.add_time('solve1', start)
+
+            # res=nlina.norm(vMor2-vMor)
+            # if res>1e-6:
+            #     print('res solve: %f' %res)
 
             start=timeit.default_timer()
             uROM = (self.U @ vMor)  # [:,0]

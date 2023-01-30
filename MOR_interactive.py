@@ -9,6 +9,7 @@ import scipy.sparse as ss
 import scipy.sparse.linalg as sslina
 # import oct2py
 import os
+import subprocess
 import zmq
 import warnings
 import timeit
@@ -26,6 +27,7 @@ os.environ["PATH"] = os.environ["PATH"] + ";D:\\Ordnerordner\\Software\\pythonEn
 
 
 path=dict()
+path['felis']     = os.path.abspath('').split('\\FELIS')[0]+'\\FELIS\\'
 path['workDir'] = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
 path['plots']   = path['workDir']+'_Documentation\\_new_images\\'
 path['mats']    = path['workDir']+'mats\\'
@@ -34,28 +36,33 @@ path['sols']    = path['mats']+'sols\\'
 path['sysmats']    = path['mats']+'systemMats\\'
 
 
-nMax =50
-f_data= {'fmin' : 0.6e9,
-         'fmax' : 6e9,
+# modelName='accelerator_cavity'
+nMax =100
+f_data= {'fmin' : 8e9,
+         'fmax' : 28e9,
          'nmor' : 1000,
-         'ntest': 100,
+         'ntest': 1000,
          }
-accuracy=1e-20
+accuracy=1e-6
 
 nPorts=2
 nModes={'TB':0,
         'TS':0,
-        'TE':5,
-        'TM':5,}
+        'TE':10,
+        'TM':10,}
 
-cond=5.8e3
+cond=5.8e5
 
-init_felis=   False
+# launch_felis =True
+init_felis   =False
 recreate_mats=False
 recreate_test=False
 
 ###############################################################################
 ###create constant matrices
+# if launch_felis:
+#     subprocess.call("H:\\FELIS_junction\\"+"felis "+modelName, shell=False)
+
 (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)=\
     MOR.createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,f_data['fmin'],f_data['fmax'],f_data['nmor'],f_data['ntest'],nPorts,nModes)
 
@@ -154,11 +161,11 @@ plotfuns.showPlot(fig,show=True)
 
 # plotconfig={'legendShow':True,'xSuffix':''}
 fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
-plotfuns.plotLine (fig, fAxis, np.abs(Z[0])  ,lineArgs={'name':'MOR_1','color':1} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[5])  ,lineArgs={'name':'MOR_6','color':0} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[20])  ,lineArgs={'name':'MOR_21','color':2} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[19])  ,lineArgs={'name':'MOR_20','color':1} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[49])  ,lineArgs={'name':'MOR_50','color':0} )
+plotfuns.plotLine (fig, fAxis, np.abs(Z[-1])  ,lineArgs={'name':'MOR_%d' %len(Z),'color':2} )
 plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-plotfuns.showPlot(fig,show=False)
+plotfuns.showPlot(fig,show=True)
 # plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
 
 
@@ -166,7 +173,7 @@ inds,times,names =pod.get_time_for_plot()
 fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
 plotfuns.plotLines (fig, inds, times,curveName=names)
 plotfuns.showPlot(fig,show=True)
-# plotfuns.exportPlot(fig, 'const_time3', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,2.7]})
+# plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
 
 #, 'xTick': 0.2, 'yTick': 1}
 

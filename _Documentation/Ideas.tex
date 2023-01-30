@@ -1,0 +1,25 @@
+\section{Ideas}
+
+\subsection{Space Efficient Residual Calculation}
+Probably the residual only has to be calculated and considered in coordinates for the adaptive sweep, on which the required post-processing results depend. Accurately, only the field along the beam, since the impedance only depends on it. But this probably doesn't work.
+
+\subsection{Adaptive Residual Calculation}
+
+\subsection{Nested QR MOR}
+Port and system matrices can be reduced
+
+\subsection{Multi Mesh MOR}
+\begin{itemize}
+	\item start on coarse mesh, create MOR
+	\item create fine mesh
+	\item project MOR basis functions on fine mesh
+	\item add basis with the additional adaptive MOR code
+\end{itemize}
+
+expected improvements, thoughts: 
+\begin{itemize}
+	\item Less evaluations of the Model with the fine grid are necessary, since the basis is partially computed a priori
+	\item An iterative solver on the fine grid could be started with a initial solution from the MOR
+	\item Any solution by the MOR is orthogonal to the new appended basis function. This has to be regarded when using iterative solvers.
+	\item Physics like energy conservation are unaffected, since neither the weak formulation nor the Solution space are changed/restricted
+\end{itemize}
