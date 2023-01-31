@@ -16,6 +16,7 @@ import zmq
 
 import port
 import utility as ut
+import joblib as jl
 
 
 def getFelisConstants():
@@ -195,13 +196,6 @@ def podOnlineSt2(fAxis,U,ports,Mats,factors,RHSOn,fIndsTest,SolsTest,JSrcOn):
         
     return (resTot,res_ROM,err_R_F,Z,uROM)
 
-
-# def nested_Gram_Schmidt(U,a):
-#     for i in range(np.shape(U)[1]):
-#         a -= np.dot(U[:,i],a)*U[:,i]
-#         a*=1/np.linalg.norm(a)
-#     return a
-
 def nested_QR(U,R,a):
     if U==[]:
         U,R=slina.qr(a,mode='economic')
@@ -289,66 +283,69 @@ class Pod_adaptive:
             self.ports[i].create_reduced_modeMats()
             self.add_time('port_assemble1', start)
 
-        for fInd in range(len(self.fAxis)):
-            f = self.fAxis[fInd]
+        jl.Parallel(n_jobs=1, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
 
-            start = timeit.default_timer()
-            for i in range(len(self.ports)):
-                start = timeit.default_timer()
-                self.ports[i].setFrequency(f)
-                self.ports[i].computeFactors()
-                if i == 0:
-                    portMat = self.ports[i].getReducedPortMat(Uh)
-                else:
-                    portMat += self.ports[i].getReducedPortMat(
-                        Uh)  # if only one basis function is used, a matrix is returned, otherwise a vector
-            self.add_time('port_assemble2', start)
-            # end port matrix creation
-
-            start = timeit.default_timer()
-            # exploiting nested structure not necessary here:
-            for i in range(len(self.Mats)):
-                if i == 0:
-                    AROM = MatsR[i] * self.factors[i](f)
-                else:
-                    AROM += MatsR[i] * self.factors[i](f)
-            AROM += portMat
-            self.add_time('mat_assemble', start)
-
-            # end exploiting nested structure not necessary here
-
-            # start=timeit.default_timer()
-            # self.add_time('projectR', start)
-
-            start = timeit.default_timer()
-            rhs_red = Uh @ self.RHS[:, fInd]
-            AQ, AR = slina.qr(AROM)
-            vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
-            self.add_time('solve1', start)
-
-            start = timeit.default_timer()
-            uROM = (self.U @ vMor)  # [:,0]
-            self.add_time('solve2', start)
-
-            start = timeit.default_timer()
-            if fInd in self.fIndsTest:
-                i = np.where(self.fIndsTest == fInd)[0][0]
-                self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
-            self.add_time('err', start)
-
-            self.residual_estimation(fInd, uROM)
-
-            # postprocess solution: impedance+sParams
-            start = timeit.default_timer()
-            self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
-            self.add_time('Z', start)
-            # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
-            # end todo nested not exploited
+        # for fInd in range(len(self.fAxis)):
+        #     self.MOR_loop(MatsR, Uh, fInd)
         # raise Exception('test')
+        self.resTot = nlina.norm(self.res_ROM)
         self.save_times()
 
 
-        
+    def MOR_loop(self, MatsR, Uh, fInd):
+        f = self.fAxis[fInd]
+
+        # start = timeit.default_timer()
+        for i in range(len(self.ports)):
+            # start = timeit.default_timer()
+            self.ports[i].setFrequency(f)
+            self.ports[i].computeFactors()
+            if i == 0:
+                portMat = self.ports[i].getReducedPortMat(Uh)
+            else:
+                portMat += self.ports[i].getReducedPortMat(Uh)
+        # self.add_time('port_assemble2', start)
+        # end port matrix creation
+
+        # start = timeit.default_timer()
+        # exploiting nested structure not necessary here:
+        for i in range(len(self.Mats)):
+            if i == 0:
+                AROM = MatsR[i] * self.factors[i](f)
+            else:
+                AROM += MatsR[i] * self.factors[i](f)
+        AROM += portMat
+        # self.add_time('mat_assemble', start)
+
+        # end exploiting nested structure not necessary here
+
+        # start=timeit.default_timer()
+        # self.add_time('projectR', start)
+
+        # start = timeit.default_timer()
+        rhs_red = Uh @ self.RHS[:, fInd]
+        AQ, AR = slina.qr(AROM)
+        vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
+        # self.add_time('solve1', start)
+
+        # start = timeit.default_timer()
+        uROM = (self.U @ vMor)  # [:,0]
+        # self.add_time('solve2', start)
+
+        # start = timeit.default_timer()
+        if fInd in self.fIndsTest:
+            i = np.where(self.fIndsTest == fInd)[0][0]
+            self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
+        # self.add_time('err', start)
+
+        self.residual_estimation(fInd, uROM)
+
+        # postprocess solution: impedance+sParams
+        # start = timeit.default_timer()
+        self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
+        # self.add_time('Z', start)
+        # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
+        # end todo nested not exploited
         
     def set_residual_indices(self,residual_indices):
         self.residual_indices=residual_indices
@@ -362,22 +359,21 @@ class Pod_adaptive:
 
     def residual_estimation(self, fInd, uROM):
         f = self.fAxis[fInd]
-        start = timeit.default_timer()
+        # start = timeit.default_timer()
         uROM_short= uROM[self.inds_u_res]
         for i in range(len(self.Mats)):
             if i == 0:
                 RHSrom = self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
             else:
                 RHSrom += self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
-        self.add_time('resMats', start)
+        # self.add_time('resMats', start)
 
-        start = timeit.default_timer()
+        # start = timeit.default_timer()
         for i in range(len(self.ports)):
             RHSrom += self.ports[i].multiplyVecPortMat(uROM)[self.residual_indices]
 
-        self.add_time('resPort', start)
+        # self.add_time('resPort', start)
         self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)
-        self.resTot = nlina.norm(self.res_ROM)
         # self.add_time('resPort', start)
 
 

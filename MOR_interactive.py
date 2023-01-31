@@ -37,11 +37,11 @@ path['sysmats']    = path['mats']+'systemMats\\'
 
 
 # modelName='accelerator_cavity'
-nMax =100
+nMax =50
 f_data= {'fmin' : 8e9,
          'fmax' : 28e9,
          'nmor' : 1000,
-         'ntest': 1000,
+         'ntest': 100,
          }
 accuracy=1e-6
 
@@ -55,8 +55,8 @@ cond=5.8e5
 
 # launch_felis =True
 init_felis   =True
-recreate_mats=False
-recreate_test=False
+recreate_mats=True
+recreate_test=True
 
 ###############################################################################
 ###create constant matrices
