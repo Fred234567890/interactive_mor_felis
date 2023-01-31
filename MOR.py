@@ -149,7 +149,7 @@ class Pod_adaptive:
         self.Z=np.zeros(len(fAxis)).astype('complex')
         self.nMOR=nMOR
         self.solInds=[]
-
+        self.parallel=False
         self.times={
             'mat_assemble' :np.zeros((nMax,len(fAxis))),
             'port_assemble':np.zeros((nMax,len(fAxis))),
@@ -158,7 +158,6 @@ class Pod_adaptive:
             'err'          :np.zeros((nMax,len(fAxis))),
             'res_port'     :np.zeros((nMax,len(fAxis))),
             'res_mats'     :np.zeros((nMax,len(fAxis))),
-            'time_step'    :np.zeros(nMax),
         }
 
 
@@ -167,7 +166,7 @@ class Pod_adaptive:
             self.sols=newSol
         else:
             self.sols=np.append(self.sols, newSol, axis=1)
-        nBasis=len(self.sols)
+        self.nBasis=np.shape(self.sols)[1]
 
         self.U,self.R=nested_QR(self.U,self.R,newSol)
 
@@ -179,62 +178,55 @@ class Pod_adaptive:
 
         for i in range(len(self.ports)):
             self.ports[i].setU(self.U)
-            # start=timeit.default_timer()
             self.ports[i].create_reduced_modeMats()
-            # self.add_time('port_assemble1', start)
 
-        jl.Parallel(n_jobs=4, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
+        jl.Parallel(n_jobs=1, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
 
 
     def MOR_loop(self, MatsR, Uh, fInd):
         f = self.fAxis[fInd]
 
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         for i in range(len(self.ports)):
-            # start = timeit.default_timer()
             if i == 0:
                 portMat = self.ports[i].getReducedPortMat(fInd)
             else:
                 portMat += self.ports[i].getReducedPortMat(fInd)
-        # self.add_time('port_assemble2', start)
+        self.add_time('port_assemble', start,fInd)
         # end port matrix creation
 
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         for i in range(len(self.Mats)):
             if i == 0:
                 AROM = MatsR[i] * self.factors[i](f)
             else:
                 AROM += MatsR[i] * self.factors[i](f)
         AROM += portMat
-        # self.add_time('mat_assemble', start)
+        self.add_time('mat_assemble', start,fInd)
 
 
         # start=timeit.default_timer()
         # self.add_time('projectR', start)
 
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         rhs_red = Uh @ self.RHS[:, fInd]
         AQ, AR = slina.qr(AROM)
         vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
-        # self.add_time('solve1', start)
+        self.add_time('solve_LGS', start,fInd)
 
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         uROM = (self.U @ vMor)  # [:,0]
-        # self.add_time('solve2', start)
+        self.add_time('solve_proj', start,fInd)
 
-        # start = timeit.default_timer()
         if fInd in self.fIndsTest:
             i = np.where(self.fIndsTest == fInd)[0][0]
             self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
-        # self.add_time('err', start)
 
         self.residual_estimation(fInd, uROM)
 
         # postprocess solution: impedance+sParams
-        # start = timeit.default_timer()
         self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
-        # self.add_time('Z', start)
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
         
     def set_residual_indices(self,residual_indices):
@@ -249,25 +241,35 @@ class Pod_adaptive:
 
     def residual_estimation(self, fInd, uROM):
         f = self.fAxis[fInd]
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         uROM_short= uROM[self.inds_u_res]
         for i in range(len(self.Mats)):
             if i == 0:
                 RHSrom = self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
             else:
                 RHSrom += self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
-        # self.add_time('resMats', start)
+        self.add_time('res_mats', start,fInd)
 
-        # start = timeit.default_timer()
+        start = timeit.default_timer()
         for i in range(len(self.ports)):
             RHSrom += self.ports[i].multiplyVecPortMat(uROM,fInd)[self.residual_indices]
+        self.add_time('res_port', start,fInd)
 
-        # self.add_time('resPort', start)
         self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)
-        # self.add_time('resPort', start)
 
-    def add_time(self, timeName, start):
-        self.times_temp[timeName]+=(timeit.default_timer() - start)
+    def add_time(self, timeName, start,fInd):
+        self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
+
+    def get_time_for_plot(self):
+        times = []
+        names = []
+        for i in range(len(self.times)):
+            times.append([])
+            names.append(list(self.times.keys())[i])
+            times[-1]=np.sum(self.times[names[i]],axis=1)
+        inds = np.cumsum(np.ones(np.shape(times)[1]))
+        return inds,times,names
+
 
 
     def select_new_freq(self):
@@ -287,29 +289,10 @@ class Pod_adaptive:
 
 
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
     
     
     

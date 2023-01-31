@@ -37,9 +37,9 @@ path['sysmats']    = path['mats']+'systemMats\\'
 
 
 # modelName='accelerator_cavity'
-nMax =50
-f_data= {'fmin' : 8e9,
-         'fmax' : 28e9,
+nMax =5
+f_data= {'fmin' : 0.8e9,
+         'fmax' : 2.8e9,
          'nmor' : 1000,
          'ntest': 100,
          }
@@ -55,8 +55,8 @@ cond=5.8e5
 
 # launch_felis =True
 init_felis   =True
-recreate_mats=False
-recreate_test=False
+recreate_mats=True
+recreate_test=True
 
 ###############################################################################
 ###create constant matrices
@@ -161,12 +161,12 @@ plotfuns.showPlot(fig,show=True)
 # plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
 # plotconfig={'legendShow':True,'xSuffix':''}
-fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
-plotfuns.plotLine (fig, fAxis, np.abs(Z[19])  ,lineArgs={'name':'MOR_20','color':1} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[49])  ,lineArgs={'name':'MOR_50','color':0} )
-plotfuns.plotLine (fig, fAxis, np.abs(Z[-1])  ,lineArgs={'name':'MOR_%d' %len(Z),'color':2} )
-plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-plotfuns.showPlot(fig,show=True)
+# fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
+# plotfuns.plotLine (fig, fAxis, np.abs(Z[19])  ,lineArgs={'name':'MOR_20','color':1} )
+# plotfuns.plotLine (fig, fAxis, np.abs(Z[49])  ,lineArgs={'name':'MOR_50','color':0} )
+# plotfuns.plotLine (fig, fAxis, np.abs(Z[-1])  ,lineArgs={'name':'MOR_%d' %len(Z),'color':2} )
+# plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
+# plotfuns.showPlot(fig,show=True)
 # plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
 
 

@@ -118,6 +118,8 @@ class Port:
     def getReducedModeMat(self,ind):
         return self.fields_reduced[ind]
 
+
+
     def getReducedPortMat(self, fInd):
         A = self.getFactor(0, fInd) * self.getReducedModeMat(0)
         for ind in range(1, self.getNumModes()):
