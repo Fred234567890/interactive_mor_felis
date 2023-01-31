@@ -14,7 +14,7 @@ class Port:
     mu = 1.2566371e-06 
     c0=-1 
     
-    def __init__ (self,path,matRead,numDict) :
+    def __init__ (self,path,matRead,numDict,fAxis) :
         self.c0      = 1/np.sqrt (self.mu*self.eps)
         self.path    = path
         self.matRead = matRead
@@ -22,8 +22,8 @@ class Port:
         self.numTS   = numDict['TS']
         self.numTE   = numDict['TE']
         self.numTM   = numDict['TM']
-        self.f=0
-        self.factors = np.zeros(self.getNumModes()).astype('complex')*np.NaN
+        self.fAxis=fAxis
+        self.factors = np.zeros((self.getNumModes(),len(fAxis))).astype('complex')*np.NaN
 
 
     def readModesTx (matRead,path,Tx,numModes) :
@@ -36,7 +36,6 @@ class Port:
         return fieldsTx
 
 
-    
     def readModes(self):
         if self.numTE>0:
             self.cutoffsTE=np.real(self.matRead (self.path+'TE')).T.tolist()[0]
@@ -52,39 +51,35 @@ class Port:
         self.fields+=Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
         self.fields+=Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
 
-
-
-        
  
     def readMaps(self):
         self.M2D2D=self.matRead(self.path+'M2D2D')
         self.M2D3D=self.matRead(self.path+'M2D3D')
         
-        
-    def setFrequency(self,f):
-        self.f=f
-        self.factors*=np.NaN
-        
-    
+
     def computeFactors(self):
         kappa=lambda f: 2*np.pi*f/self.c0
-        
-        for modeInd in range(self.getNumModes()):
-            mType=self.getModeType(modeInd) 
-            if  mType=='TB' or mType=='TS': 
-                self.factors[modeInd]=kappa(self.f)
-            else:
-                gamma2=kappa (self.getCutoff(modeInd)) **2-kappa(self.f)**2
-                if gamma2>=0:
-                    gamma=np.sqrt (gamma2) 
-                else:
-                    gamma=1j*np.sqrt (-gamma2) 
-                    
-                if mType=='TE':
-                   self.factors[modeInd]= gamma 
-                elif mType=='TM':
-                    self.factors[modeInd]= -kappa(self.f)**2/gamma 
 
+        for fInd in range(len(self.fAxis)):
+            f=self.fAxis[fInd]
+            for modeInd in range(self.getNumModes()):
+                mType=self.getModeType(modeInd)
+                if  mType=='TB' or mType=='TS':
+                    self.factors[modeInd,fInd]=kappa(f)
+                else:
+                    gamma2=kappa (self.getCutoff(modeInd)) **2-kappa(f)**2
+                    if gamma2>=0:
+                        gamma=np.sqrt (gamma2)
+                    else:
+                        gamma=1j*np.sqrt (-gamma2)
+
+                    if mType=='TE':
+                       self.factors[modeInd,fInd]= gamma
+                    elif mType=='TM':
+                        self.factors[modeInd,fInd]= -kappa(f)**2/gamma
+
+    def getFactor(self,ind,fInd): #self.getFactor(ind,fInd)
+        return self.factors[ind,fInd]
             
     def getNumModes(self):
         return self.numTB+self.numTS+self.numTE+self.numTM
@@ -123,13 +118,10 @@ class Port:
     def getReducedModeMat(self,ind):
         return self.fields_reduced[ind]
 
-    def getReducedPortMat(self, Uh):
-        A = self.factors[0] * self.getReducedModeMat(0)
-        # refMat=self.getReducedModeMat_old (0,Uh)
+    def getReducedPortMat(self, fInd):
+        A = self.getFactor(0, fInd) * self.getReducedModeMat(0)
         for ind in range(1, self.getNumModes()):
-            newMat = self.getReducedModeMat(ind)
-            # refMat=self.getReducedModeMat_old (ind,Uh)
-            A += self.factors[ind] * newMat
+            A += self.getFactor(ind, fInd) * self.getReducedModeMat(ind)
         return A
 
     def getModeVec(self,ind):
@@ -138,24 +130,23 @@ class Port:
     def getModeMat(self,ind):
         return self.getModeVec (ind) *self.getModeVec (ind) .T
     
-    def getPortMat(self,f):
-        A = self.factors[0] *self.getModeMat (0)
+    def getPortMat(self,fInd):
+        A = self.getFactor(0, fInd) *self.getModeMat (0)
         for ind in range (1,self.getNumModes()) :
-            A+= self.factors[ind] *self.getModeMat (ind)
+            A+= self.getFactor(ind, fInd) *self.getModeMat (ind)
         return A
 
-    def MultiplyModeMat(self,ind,x):
-        fac=self.factors [ind]
+    def MultiplyModeMat(self,ind,x,fInd):
+        fac=self.getFactor(ind, fInd)
         mVec=self.getModeVec (ind).data
         return mVec * (fac * (np.dot(mVec.conj(),x)))
 
-    def multiplyVecPortMat(self,x):  #todo: exploit the rank 1 matrix property for the multiplication
+    def multiplyVecPortMat(self,x,fInd):  #todo: exploit the rank 1 matrix property for the multiplication
         x_short=x[self.getModeVec(0).indices]
         y=np.zeros(np.shape(x)).astype('complex')
         for ind in range (self.getNumModes()) :
-            y[self.getModeVec(0).indices]+= self.MultiplyModeMat(ind,x_short)
+            y[self.getModeVec(0).indices]+= self.MultiplyModeMat(ind,x_short,fInd)
         return y
-
 
     def setU(self,U):
         self.U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVecs

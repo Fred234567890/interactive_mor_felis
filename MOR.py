@@ -26,6 +26,10 @@ def getFelisConstants():
     return (eps,mu,c0) #(eps,mu,c0)=MOR.getFelisConstants()
 
 def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
+
+    #  create fAxis
+    fAxis = np.linspace(fmin, fmax, nTrain)
+
     #  delete old files
     subprocess.call("del /q /s " + path['sols'] + "\\train*", shell=True)
 
@@ -69,11 +73,13 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
 
     ports = []
     for i in range(nPorts):
-        ports.append(port.Port(path['ports'] + str(i) + '\\', pRead, nModes))
+        ports.append(port.Port(path['ports'] + str(i) + '\\', pRead, nModes,fAxis))
         print('port read modes')
         ports[i].readModes()
         print('port read maps')
         ports[i].readMaps()
+        print('port compute factors')
+        ports[i].computeFactors()
 
 
     print('read RHS')
@@ -81,8 +87,6 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
     print('read Js')
     JSrc = pRead(path['mats'] + 'Js')  #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
 
-    #  create fAxis
-    fAxis = np.linspace(fmin, fmax, nTrain)
     fAxisTest,fIndsTest = ut.closest_values(fAxis, np.linspace(fmin,fmax,nTest),returnInd=True)  # select test frequencies from fAxis
     # create test data
 
@@ -107,7 +111,6 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
             sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
     print('runtime Felis for test data: %f' %runtimeTest)
     return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
-
 
 def selectIndAdaptive(nFreqs,res,solInds):
     if len(solInds) == 0:
@@ -148,13 +151,13 @@ class Pod_adaptive:
         self.solInds=[]
 
         self.times={
-            'mat_assemble' :np.zeros(nMax,(len(fAxis))),
-            'port_assemble':np.zeros(nMax,(len(fAxis))),
-            'solve_LGS'    :np.zeros(nMax,(len(fAxis))),
-            'solve_proj'   :np.zeros(nMax,(len(fAxis))),
-            'err'          :np.zeros(nMax,(len(fAxis))),
-            'res_port'     :np.zeros(nMax,(len(fAxis))),
-            'res_mats'     :np.zeros(nMax,(len(fAxis))),
+            'mat_assemble' :np.zeros((nMax,len(fAxis))),
+            'port_assemble':np.zeros((nMax,len(fAxis))),
+            'solve_LGS'    :np.zeros((nMax,len(fAxis))),
+            'solve_proj'   :np.zeros((nMax,len(fAxis))),
+            'err'          :np.zeros((nMax,len(fAxis))),
+            'res_port'     :np.zeros((nMax,len(fAxis))),
+            'res_mats'     :np.zeros((nMax,len(fAxis))),
             'time_step'    :np.zeros(nMax),
         }
 
@@ -176,12 +179,11 @@ class Pod_adaptive:
 
         for i in range(len(self.ports)):
             self.ports[i].setU(self.U)
-            start=timeit.default_timer()
+            # start=timeit.default_timer()
             self.ports[i].create_reduced_modeMats()
-            self.add_time('port_assemble1', start)
+            # self.add_time('port_assemble1', start)
 
-        jl.Parallel(n_jobs=1, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
-
+        jl.Parallel(n_jobs=4, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
 
 
@@ -191,12 +193,10 @@ class Pod_adaptive:
         # start = timeit.default_timer()
         for i in range(len(self.ports)):
             # start = timeit.default_timer()
-            self.ports[i].setFrequency(f)
-            self.ports[i].computeFactors()
             if i == 0:
-                portMat = self.ports[i].getReducedPortMat(Uh)
+                portMat = self.ports[i].getReducedPortMat(fInd)
             else:
-                portMat += self.ports[i].getReducedPortMat(Uh)
+                portMat += self.ports[i].getReducedPortMat(fInd)
         # self.add_time('port_assemble2', start)
         # end port matrix creation
 
@@ -260,7 +260,7 @@ class Pod_adaptive:
 
         # start = timeit.default_timer()
         for i in range(len(self.ports)):
-            RHSrom += self.ports[i].multiplyVecPortMat(uROM)[self.residual_indices]
+            RHSrom += self.ports[i].multiplyVecPortMat(uROM,fInd)[self.residual_indices]
 
         # self.add_time('resPort', start)
         self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)

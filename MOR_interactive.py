@@ -55,8 +55,8 @@ cond=5.8e5
 
 # launch_felis =True
 init_felis   =True
-recreate_mats=True
-recreate_test=True
+recreate_mats=False
+recreate_test=False
 
 ###############################################################################
 ###create constant matrices
