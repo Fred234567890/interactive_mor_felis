@@ -97,7 +97,7 @@ solInds=[]
 
 
 timeStart=timeit.default_timer()
-pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'])
+pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'],nMax)
 pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/1)).astype(int))
 for iBasis in range(nMax):
     ###############################################################################
@@ -117,7 +117,7 @@ for iBasis in range(nMax):
     ###############################################################################
     #update
     # pod.update_Classic(newSol)
-    pod.update_nested(newSol)
+    pod.update(newSol)
     # pod.print_time()
     ###############################################################################
     #post processing
