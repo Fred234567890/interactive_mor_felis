@@ -114,14 +114,7 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
     print('runtime Felis for test data: %f' %runtimeTest)
     return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
 
-def selectIndAdaptive(nFreqs,res,solInds):
-    if len(solInds) == 0:
-        solInds.append(np.round(nFreqs/2).astype(int))
-    else:
-        facts=np.array([0 if i in solInds else 1 for i in range(nFreqs)])
-        if np.sum(facts)==0:
-            raise Exception('no more frequencies available')
-        solInds.append(np.argmax(res*facts))
+
 
 def impedance(u,j):
     return -np.dot(u,j.conj())
@@ -136,6 +129,7 @@ def nested_QR(U,R,a):
 class Pod_adaptive:
     def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,SolsTest,nMOR,nMax):
         self.fAxis=fAxis
+        self.findsEval=list(range(len(fAxis)))
         self.ports=ports
         self.Mats=Mats
         self.factors=factors
@@ -274,12 +268,51 @@ class Pod_adaptive:
 
 
 
+    def fAxisGreedy(self,density):
+        self.fIndsEval=np.round(np.linspace(0,len(self.fAxis)-1,int(len(self.fAxis)*density))).astype(int)
+
+    def fAxisGreedy_treeRefine(self, refine_ind):
+        ind_fIndsEval = np.where(self.fIndsEval == refine_ind)[0][0]
+        if ind_fIndsEval+1 <= len(self.fIndsEval)-1:
+            if self.fIndsEval[ind_fIndsEval+1]-self.fIndsEval[ind_fIndsEval]>1:
+                indNew= np.round((self.fIndsEval[ind_fIndsEval]+self.fIndsEval[ind_fIndsEval+1])/2).astype(int)
+                self.fIndsEval=np.insert(self.fIndsEval,ind_fIndsEval+1,indNew)
+            else:
+                print('no refinement possible for higher frequency')
+        if ind_fIndsEval-1 >= 0:
+            if self.fIndsEval[ind_fIndsEval]-self.fIndsEval[ind_fIndsEval-1]>1:
+                indNew= np.round((self.fIndsEval[ind_fIndsEval]+self.fIndsEval[ind_fIndsEval-1])/2).astype(int)
+                self.fIndsEval=np.insert(self.fIndsEval,ind_fIndsEval,indNew)
+            else:
+                print('no refinement possible for lower frequency')
+
+    def select_new_freq_greedy(self):
+        if len(self.solInds) == 0:
+            a=int(len(self.fIndsEval) / 2)
+            newSolInd=self.fIndsEval[a]
+            self.solInds.append(newSolInd)
+        else:
+            facts= np.array([0 if i in self.solInds else 1 for i in range(len(self.fAxis))])
+            if np.sum(facts)==0:
+                raise Exception('no more frequencies available')
+            res = (self.res_ROM*facts)[self.fIndsEval]
+            newSolInd= self.fIndsEval[np.argmax(res)]
+            self.solInds.append(newSolInd)
+            self.fAxisGreedy_treeRefine(newSolInd)
+        return self.fAxis[newSolInd]
+
+
+
     def select_new_freq(self):
-        try:
-            selectIndAdaptive(self.nMOR,self.res_ROM,self.solInds)#)f_data['nmor'], res_ROM, solInds)
-        except Exception:
-            raise Exception('No more frequencies to select')
+        if len(self.solInds) == 0:
+            self.solInds.append((len(self.fAxis) / 2).astype(int))
+        else:
+            facts = np.array([0 if i in self.solInds else 1 for i in range(len(self.fAxis))])
+            if np.sum(facts) == 0:
+                raise Exception('no more frequencies available')
+            self.solInds.append(np.argmax(self.res_ROM * facts))
         return self.fAxis[self.solInds[-1]]
+
 
     def get_conv(self):
         resTot=np.linalg.norm(self.res_ROM)

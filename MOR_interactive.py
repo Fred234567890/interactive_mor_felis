@@ -37,7 +37,7 @@ path['sysmats']    = path['mats']+'systemMats\\'
 
 
 # modelName='accelerator_cavity'
-nMax =2
+nMax =50
 f_data= {'fmin' : 0.8e9,
          'fmax' : 2.8e9,
          'nmor' : 1000,
@@ -55,8 +55,8 @@ cond=5.8e5
 
 # launch_felis =True
 init_felis   =True
-recreate_mats=True
-recreate_test=True
+recreate_mats=False
+recreate_test=False
 
 ###############################################################################
 ###create constant matrices
@@ -99,14 +99,16 @@ solInds=[]
 timeStart=timeit.default_timer()
 pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'],nMax)
 pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/1)).astype(int))
+pod.fAxisGreedy(1/16)
+
 for iBasis in range(nMax):
     ###############################################################################
     #add new solutions:
-    try:
-        fnew=pod.select_new_freq()
-    except Exception:
-        warnings.warn('No more frequencies to select')
-        break
+    # try:
+    fnew=pod.select_new_freq_greedy()
+    # except Exception:
+    #     warnings.warn('No more frequencies to select')
+    #     break
 
     socket.send_string("solve: train_%d  %f" %(iBasis,fnew))
     message = socket.recv()
