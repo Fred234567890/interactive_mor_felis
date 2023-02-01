@@ -19,11 +19,13 @@ import utility as ut
 import joblib as jl
 
 
+
 def getFelisConstants():
     eps  = 8.8541878e-12
     mu = 1.2566371e-06
     c0 = 1/np.sqrt(mu*eps)
     return (eps,mu,c0) #(eps,mu,c0)=MOR.getFelisConstants()
+
 
 def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
 
@@ -83,9 +85,9 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
 
 
     print('read RHS')
-    RHS = pRead(path['mats'] + 'RHSs')  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
+    RHS = pRead(path['mats'] + 'RHSs').tocsc()  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
     print('read Js')
-    JSrc = pRead(path['mats'] + 'Js')  #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
+    JSrc = pRead(path['mats'] + 'Js').tocsc() #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
 
     fAxisTest,fIndsTest = ut.closest_values(fAxis, np.linspace(fmin,fmax,nTest),returnInd=True)  # select test frequencies from fAxis
     # create test data
@@ -210,7 +212,7 @@ class Pod_adaptive:
         # self.add_time('projectR', start)
 
         start = timeit.default_timer()
-        rhs_red = Uh @ self.RHS[:, fInd]
+        rhs_red = Uh @ self.getRHS(fInd)
         AQ, AR = slina.qr(AROM)
         vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
         self.add_time('solve_LGS', start,fInd)
@@ -226,7 +228,7 @@ class Pod_adaptive:
         self.residual_estimation(fInd, uROM)
 
         # postprocess solution: impedance+sParams
-        self.Z[fInd] = impedance(uROM, self.JSrc[:, fInd])
+        self.Z[fInd] = impedance(uROM, self.getJSrc(fInd))
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
         
     def set_residual_indices(self,residual_indices):
@@ -255,7 +257,7 @@ class Pod_adaptive:
             RHSrom += self.ports[i].multiplyVecPortMat(uROM,fInd)[self.residual_indices]
         self.add_time('res_port', start,fInd)
 
-        self.res_ROM[fInd] = nlina.norm(self.RHS[self.residual_indices, fInd] - RHSrom)
+        self.res_ROM[fInd] = nlina.norm(self.getRHS(fInd)[self.residual_indices] - RHSrom)
 
     def add_time(self, timeName, start,fInd):
         self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
@@ -287,6 +289,11 @@ class Pod_adaptive:
     def get_Z(self):
         return self.Z
 
+    def getRHS(self,fInd):
+        return self.RHS[:,fInd].toarray()[:,0]
+
+    def getJSrc(self,fInd):
+        return self.JSrc[:,fInd].toarray()[:,0]
 
 
 

@@ -174,7 +174,11 @@ def append(arr, values, axis=None):
          return np.append(A, np.array([[b]]), axis)
     else:
         raise Exception("incompatible Array dimensions") 
-    
+
+def memomryComputeCSX(A):
+    from sys import getsizeof
+    return len(A.data)*getsizeof(A.data[0])+len(A.indptr)*getsizeof(A.indptr[0])+len(A.indices)*getsizeof(A.indices[0])
+
 
 def backupFile(path,backupPath,copy=True):
     if os.path.exists(backupPath):
