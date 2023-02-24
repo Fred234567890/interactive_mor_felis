@@ -45,40 +45,41 @@ import time
 import os
 
 
-def f(i,arr1,arr2):
-    arr1[i]=i*np.linalg.norm(np.outer(arr2,arr2))
+# def f(i,arr1,arr2):
+#     arr1[i]=i*np.linalg.norm(np.outer(arr2,arr2))
 
-arr1=np.zeros(32)
-arr2=np.ones(1000)
+# arr1=np.zeros(32)
+# arr2=np.ones(1000)
 
-times=[]
-for i in range(8):
-    times.append([])
-    numThreads=i+1
-    for i in range(10):
-        if i==0:
-            start=timeit.default_timer()
-            for j in range(len(arr1)):
-                f(j,arr1,arr2)
-            times[-1].append(timeit.default_timer()-start)
-        else:
-            start=timeit.default_timer()
-            jl.Parallel(n_jobs=numThreads, prefer="threads")(jl.delayed(f)(j,arr1,arr2) for j in range(len(arr1)))
-            times[-1].append(timeit.default_timer()-start)
+# times=[]
+# for i in range(8):
+#     times.append([])
+#     numThreads=i+1
+#     for i in range(10):
+#         if i==0:
+#             start=timeit.default_timer()
+#             for j in range(len(arr1)):
+#                 f(j,arr1,arr2)
+#             times[-1].append(timeit.default_timer()-start)
+#         else:
+#             start=timeit.default_timer()
+#             jl.Parallel(n_jobs=numThreads, prefer="threads")(jl.delayed(f)(j,arr1,arr2) for j in range(len(arr1)))
+#             times[-1].append(timeit.default_timer()-start)
 
-times=np.array(times)
+# times=np.array(times)
+#
+# fig=plotfuns.initPlot(logY=False,logX=False)
+# times_mean=[]
+# for i in range(np.shape(times)[0]):
+#     times_i=times[i]
+#     plotfuns.plotCloud(fig,np.ones(len(times_i))*(i+1),times_i,cloudArgs={'color':i,'name':'','showLegend':True})
+#     times_mean.append(np.mean(times_i))
+# plotfuns.plotLine(fig,np.array(range(np.shape(times)[0]))+1,times_mean,lineArgs={'color':'black','name':'mean','showLegend':True})
+# plotfuns.showPlot(fig)
 
-fig=plotfuns.initPlot(logY=False,logX=False)
-times_mean=[]
-for i in range(np.shape(times)[0]):
-    times_i=times[i]
-    plotfuns.plotCloud(fig,np.ones(len(times_i))*(i+1),times_i,cloudArgs={'color':i,'name':'','showLegend':True})
-    times_mean.append(np.mean(times_i))
-plotfuns.plotLine(fig,np.array(range(np.shape(times)[0]))+1,times_mean,lineArgs={'color':'black','name':'mean','showLegend':True})
-plotfuns.showPlot(fig)
 
-
-
+a=ut.petscRead('D:\\Ordnerordner\\FELIS\\tmp\\mats\\0\\0')
+b=ut.petscRead('D:\\Ordnerordner\\FELIS\\tmp\\mats\\0\\1')
 
 
 

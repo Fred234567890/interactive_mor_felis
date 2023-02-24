@@ -55,6 +55,29 @@ This section is based on the commit "Interactive with time measurement".
 
 
 
+\section{Greedy}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\textwidth]{acc_cav_greedy_conv1.pdf}
+	\caption{Convergence of the greedy frequency axis refinement. Tested with the coarse mesh of the accelerator cavity (1200 nodes). The number in the legend indicates the initial "density" of the frequency axis. 1/1 has 1000 points, 1/2 500,... Important to mention: The frequency axis is limited in the density, it can only be refined up to the density of 1/1. Both error and residual are computed with all 1000 points.}
+	\label{ }
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\textwidth]{Acc_cav_greedy_conv1_err.pdf}
+	\caption{Convergence of the greedy frequency axis refinement. Tested with the coarse mesh of the accelerator cavity (1200 nodes). The number in the legend indicates the initial "density" of the frequency axis. Clearly visible is that the curves belonging to denser initial axis converge fast 128...1024, while the sparser ones converge increasingly slowly.}
+	\label{ }
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\textwidth]{Acc_cav_greedy_conv1_res.pdf}
+	\caption{Corresponding residual convergence.}
+	\label{ }
+\end{figure}
+
 
 
 

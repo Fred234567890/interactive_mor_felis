@@ -37,26 +37,26 @@ path['sysmats']    = path['mats']+'systemMats\\'
 
 
 # modelName='accelerator_cavity'
-nMax =50
-f_data= {'fmin' : 0.8e9,
-         'fmax' : 2.8e9,
-         'nmor' : 1000,
-         'ntest': 1000,
+nMax =75
+f_data= {'fmin' : 0.2e9,
+         'fmax' : 1e9,
+         'nmor' : 8,
+         'ntest': 8,
          }
 accuracy=1e-6
 
 nPorts=2
 nModes={'TB':0,
         'TS':0,
-        'TE':10,
+        'TE':0,
         'TM':10,}
 
 cond=5.8e5
 
 # launch_felis =True
 init_felis   =True
-recreate_mats=False
-recreate_test=False
+recreate_mats=True
+recreate_test=True
 
 ###############################################################################
 ###create constant matrices
@@ -162,7 +162,7 @@ for i in range(len(err_Plots)):
     plotfuns.plotLine (fig, nBasiss, res_Plots[i],lineArgs={'name':'res1/%d'%2**i,'color':i})
     plotfuns.plotLine (fig, nBasiss, err_Plots[i],lineArgs={'name':'err1/%d'%2**i,'color':i,'dash':'dash'})
 plotfuns.showPlot(fig,show=True)
-# plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
+plotfuns.exportPlot(fig, 'acc_cav_greedy_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':1,'yRange':ut.listlog([100e3,5e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
 
 

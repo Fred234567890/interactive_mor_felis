@@ -82,6 +82,9 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
         ports[i].readMaps()
         print('port compute factors')
         ports[i].computeFactors()
+        print('port read EInc')
+        ports[i].readEInc()
+
 
 
     print('read RHS')
@@ -118,6 +121,7 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
 
 def impedance(u,j):
     return -np.dot(u,j.conj())
+
 
 def nested_QR(U,R,a):
     if U==[]:
@@ -224,7 +228,12 @@ class Pod_adaptive:
         # postprocess solution: impedance+sParams
         self.Z[fInd] = impedance(uROM, self.getJSrc(fInd))
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
-        
+
+    def sParam(self,u,f):
+        for i in range(len(self.ports)):
+            S=self.ports[i].getSParams(u,f)
+
+
     def set_residual_indices(self,residual_indices):
         self.residual_indices=residual_indices
         self.Mats_res=[]
@@ -301,8 +310,6 @@ class Pod_adaptive:
             self.fAxisGreedy_treeRefine(newSolInd)
         return self.fAxis[newSolInd]
 
-
-
     def select_new_freq(self):
         if len(self.solInds) == 0:
             self.solInds.append((len(self.fAxis) / 2).astype(int))
@@ -312,6 +319,7 @@ class Pod_adaptive:
                 raise Exception('no more frequencies available')
             self.solInds.append(np.argmax(self.res_ROM * facts))
         return self.fAxis[self.solInds[-1]]
+
 
 
     def get_conv(self):

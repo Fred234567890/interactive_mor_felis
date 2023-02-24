@@ -36,6 +36,7 @@
 \newlabel{}{{12}{4}}
 \@writefile{toc}{\contentsline {section}{\numberline {II}time analysis}{4}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Accelerator Cavity with 20.5k Nodes}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {III}Greedy}{4}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Convergence for the resistive square cavity over frequency. Compared to the previous examples, this time the convergence is not uniform and significantly quicker in the lower frequencies. The numbers don't equal the number of basis functions: 14=60}}{4}{}\protected@file@percent }
 \newlabel{}{{13}{4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Convergence for the resistive square cavity with adaptive points.}}{4}{}\protected@file@percent }
@@ -66,6 +67,12 @@
 \newlabel{ }{{26}{6}}
 \@writefile{lof}{\contentsline {figure}{\numberline {27}{\ignorespaces Impedance for the accelerator cavity with the 20.5k node mesh.}}{6}{}\protected@file@percent }
 \newlabel{ }{{27}{6}}
-\@writefile{lof}{\contentsline {figure}{\numberline {28}{\ignorespaces Runtime for the accelerator cavity with the 20.5k node mesh. Evaluating the model with FELIS in 100 points took 545s, so 1000 evals would be 5450s. The MOR needed 2774s to reach about 0.2\% of the original residual.}}{6}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {28}{\ignorespaces Runtime for the accelerator cavity with the 20.5k node mesh. Evaluating the model with FELIS in 100 points took 545s, so 1000 evals would be 5450s. The MOR needed 2774s to reach about 0.2\% of the original residual. Both FELIS and the MOR require about 1GB of memory.}}{6}{}\protected@file@percent }
 \newlabel{ }{{28}{6}}
-\gdef \@abspage@last{6}
+\@writefile{lof}{\contentsline {figure}{\numberline {29}{\ignorespaces Convergence of the greedy frequency axis refinement. Tested with the coarse mesh of the accelerator cavity (1200 nodes). The number in the legend indicates the initial "density" of the frequency axis. 1/1 has 1000 points, 1/2 500,... Important to mention: The frequency axis is limited in the density, it can only be refined up to the density of 1/1. Both error and residual are computed with all 1000 points.}}{7}{}\protected@file@percent }
+\newlabel{ }{{29}{7}}
+\@writefile{lof}{\contentsline {figure}{\numberline {30}{\ignorespaces Convergence of the greedy frequency axis refinement. Tested with the coarse mesh of the accelerator cavity (1200 nodes). The number in the legend indicates the initial "density" of the frequency axis. Clearly visible is that the curves belonging to denser initial axis converge fast 128...1024, while the sparser ones converge increasingly slowly.}}{7}{}\protected@file@percent }
+\newlabel{ }{{30}{7}}
+\@writefile{lof}{\contentsline {figure}{\numberline {31}{\ignorespaces Corresponding residual convergence.}}{7}{}\protected@file@percent }
+\newlabel{ }{{31}{7}}
+\gdef \@abspage@last{7}

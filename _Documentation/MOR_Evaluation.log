@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2022.7.6)  1 FEB 2023 18:12
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2022.7.6)  10 FEB 2023 12:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1310,6 +1310,18 @@ LaTeX Warning: Label `' multiply defined.
 
 LaTeX Warning: Label `' multiply defined.
 
+
+LaTeX Warning: Label ` ' multiply defined.
+
+
+LaTeX Warning: Label ` ' multiply defined.
+
+
+LaTeX Warning: Label ` ' multiply defined.
+
+
+LaTeX Warning: Label ` ' multiply defined.
+
 )
 \openout1 = `MOR_Evaluation.aux'.
 
@@ -1797,6 +1809,48 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 50--51
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
+<./images//acc_cav_greedy_conv1.pdf, id=149, 1445.4pt x 722.7pt>
+File: ./images//acc_cav_greedy_conv1.pdf Graphic file (type pdf)
+<use ./images//acc_cav_greedy_conv1.pdf>
+Package pdftex.def Info: ./images//acc_cav_greedy_conv1.pdf  used on input line
+ 62.
+(pdftex.def)             Requested size: 258.0pt x 128.99968pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 62--63
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<./images//Acc_cav_greedy_conv1_err.pdf, id=150, 1445.4pt x 722.7pt>
+File: ./images//Acc_cav_greedy_conv1_err.pdf Graphic file (type pdf)
+<use ./images//Acc_cav_greedy_conv1_err.pdf>
+Package pdftex.def Info: ./images//Acc_cav_greedy_conv1_err.pdf  used on input 
+line 69.
+(pdftex.def)             Requested size: 258.0pt x 128.99968pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 69--70
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+<./images//Acc_cav_greedy_conv1_res.pdf, id=151, 1445.4pt x 722.7pt>
+File: ./images//Acc_cav_greedy_conv1_res.pdf Graphic file (type pdf)
+<use ./images//Acc_cav_greedy_conv1_res.pdf>
+Package pdftex.def Info: ./images//Acc_cav_greedy_conv1_res.pdf  used on input 
+line 76.
+(pdftex.def)             Requested size: 258.0pt x 128.99968pt.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 76--77
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
 ) [4 <./images//sqcR_conv_st2_adap_1.pdf> <./images//sqcR_conv_st2_broad1.pdf> 
 <./images//sqcR_conv_st2_broad2.pdf> <./images//sqcR_conv_st2_adap_broad1.pdf> 
 <./images//sqcR_conv_st2_adap_broad2.pdf> <./images//sqcR_imp_ada1.pdf>]
@@ -1805,16 +1859,20 @@ ges//const_imp_Felis_Py2.pdf> <./images//const_conv_st2_adap_1.pdf> <./images//
 const_conv_st2_adap_broad1.pdf> <./images//CubeWireGeo.PNG>] [6 <./images//Cube
 Wire_time_merge1.PNG> <./images//sqav_time_merge1.PNG> <./images//const_time_me
 rge1.PNG> <./images//acc_cav_conv1.pdf> <./images//acc_cav_imp1.pdf> <./images/
-/acc_cav_time1.pdf>] (./MOR_Evaluation.aux)
+/acc_cav_time1.pdf>] [7
+
+ <./images//acc_cav_greedy_conv1.pdf> <./images//Acc_cav_greedy_conv1_err.pdf> 
+<./images//Acc_cav_greedy_conv1_res.pdf>]
+(./MOR_Evaluation.aux)
 
 LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 37987 strings out of 478027
- 945036 string characters out of 5842750
- 1430044 words of memory out of 5000000
- 55991 multiletter control sequences out of 15000+600000
+ 38014 strings out of 478027
+ 946137 string characters out of 5842750
+ 1430053 words of memory out of 5000000
+ 56015 multiletter control sequences out of 15000+600000
  501957 words of font info for 92 fonts, out of 8000000 for 9000
  1144 hyphenation exceptions out of 8191
  115i,8n,118p,797b,520s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1825,10 +1883,10 @@ public/amsfonts/cm/cmr10.pfb><c:/texlive/2022/texmf-dist/fonts/type1/public/ams
 fonts/cm/cmr7.pfb><c:/texlive/2022/texmf-dist/fonts/type1/public/amsfonts/cm/cm
 sy7.pfb><c:/texlive/2022/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texliv
 e/2022/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on MOR_Evaluation.pdf (6 pages, 1310412 bytes).
+Output written on MOR_Evaluation.pdf (7 pages, 1380238 bytes).
 PDF statistics:
- 357 PDF objects out of 1000 (max. 8388607)
- 253 compressed objects within 3 object streams
+ 401 PDF objects out of 1000 (max. 8388607)
+ 287 compressed objects within 3 object streams
  0 named destinations out of 1000 (max. 500000)
- 153 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 168 words of extra memory for PDF output out of 10000 (max. 10000000)
 
