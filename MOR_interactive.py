@@ -1,5 +1,4 @@
 
-import utility as ut
 
 
 import numpy as np
@@ -15,8 +14,12 @@ import warnings
 import timeit
 
 import port
-import plotfuns
+from myLibs import utility as ut
+from myLibs import plotfuns
 import MOR
+import misc
+
+import h5py
 
 # oc = oct2py.Oct2Py()
 # pRead=lambda path:ut.pRead(oc, path)
@@ -27,44 +30,49 @@ os.environ["PATH"] = os.environ["PATH"] + ";D:\\Ordnerordner\\Software\\pythonEn
 
 
 path=dict()
-path['felis']     = os.path.abspath('').split('\\FELIS')[0]+'\\FELIS\\'
-path['workDir'] = os.path.abspath('').split('\\interactive_mor_felis')[0]+'\\interactive_mor_felis\\'
-path['plots']   = path['workDir']+'_Documentation\\_new_images\\'
-path['mats']    = path['workDir']+'mats\\'
+path['felis_projects']     = os.path.abspath('').split('\\FELIS_Projects')[0]+'\\FELIS_Projects\\'
+path['workDir'] = os.path.abspath('')+'\\'
+path['felis_bin']= path['felis_projects']+"FELIS_Binary\\"
+path['mats']    = path['felis_bin']+'mats\\'
+# path['mats']    = path['felis_bin']+'interactive_mor_felis\\mats\\'
 path['ports']   = path['mats']+'ports\\'
 path['sols']    = path['mats']+'sols\\'
 path['sysmats']    = path['mats']+'systemMats\\'
+path['plots']   = path['workDir']+'_new_images\\'
 
 
 # modelName='accelerator_cavity'
-nMax =75
-f_data= {'fmin' : 0.2e9,
+symmetry=2
+nMax =250
+f_data= {'fmin' : 0.08e9,
          'fmax' : 1e9,
-         'nmor' : 8,
-         'ntest': 8,
+         'nmor' : 10000,
+         'ntest': 50,          # 1577.186820
          }
-accuracy=1e-6
+accuracy=1e-3
 
 nPorts=2
 nModes={'TB':0,
         'TS':0,
         'TE':0,
-        'TM':10,}
+        'TM':1,}
 
-cond=5.8e5
+cond=0 #5.8e5
 
 # launch_felis =True
-init_felis   =True
-recreate_mats=True
-recreate_test=True
-
+felis_todos=dict()
+felis_todos['init'] =False
+felis_todos['mats'] =False  
+felis_todos['test'] =False   
+felis_todos['train']=False
 ###############################################################################
 ###create constant matrices
 # if launch_felis:
 #     subprocess.call("H:\\FELIS_junction\\"+"felis "+modelName, shell=False)
 
 (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)=\
-    MOR.createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,f_data['fmin'],f_data['fmax'],f_data['nmor'],f_data['ntest'],nPorts,nModes)
+    MOR.createMatrices(felis_todos,pRead,path,cond,f_data['fmin'],f_data['fmax'],f_data['nmor'],f_data['ntest'],nPorts,nModes)
+f_data['nmor']=len(fAxis)
 
 
 ###############################################################################
@@ -79,128 +87,179 @@ factorSibc= lambda freq:1j*w(freq)*mu/np.sqrt(1j*mu*w(freq)/(cond+1j*eps*w(freq)
 Mats=[CC,ME,MC,Sibc]
 factors=[
     lambda f:1,
-    lambda f:-kap(f)**2,
+    lambda f:-kap(f)**2,    
     lambda f:1j*w(f)*mu,
     lambda f:factorSibc(f)/factorSibc(fAxis[0])
         ]
 
 
-res_Plots=[]
-err_Plots=[]
-Zs=[]
-oldPods=[]
-for k in range(4):
-    res_Plot=[]
-    err_Plot=[]
-    res_curves=[]
-    resDotsX=[]
-    resDotsY=[]
-    Z=[]
-    nBasiss=[]
-    res_ROM=0
-    solInds=[]
 
-    timeStart=timeit.default_timer()
-    pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,f_data['nmor'],nMax)
-    pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/1)).astype(int))
-    pod.fAxisGreedy(1/2**k)
-    for iBasis in range(nMax):
-        ###############################################################################
-        #add new solutions:
-        # try:
+
+final=False
+res_Plot=[]
+err_Plot=[]
+res_curves=[]
+resDotsX=[]
+resDotsY=[]
+nBasiss=[]
+res_ROM=0
+solInds=[]
+Z=[]
+fAxes=[]
+
+timeStart=timeit.default_timer()
+pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,nMax)
+pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/16)).astype(int))
+pod.fAxisGreedy(1/32)
+for iBasis in range(nMax):
+    ###############################################################################
+
+    #add new solutions:
+
+    if os.path.isfile(path['sols'] +'train_'+str(iBasis)+'.pmat'):
+        fnew=misc.csv_readLine(path['sols'] +'freqs',iBasis)[0]
+        pod.register_new_freq(fnew)
+        newSol = pRead(path['sols'] + 'train_' + str(iBasis))
+    else:
         fnew=pod.select_new_freq_greedy()
-        # except Exception:
-        #     warnings.warn('No more frequencies to select')
-        #     break
-
         socket.send_string("solve: train_%d  %f" %(iBasis,fnew))
         message = socket.recv()
-        print(message)
+        misc.timeprint(message)
+        misc.csv_writeLine(path['sols'] +'freqs',fnew,iBasis)
+
         newSol = pRead(path['sols'] +'train_'+str(iBasis))
 
 
-        ###############################################################################
-        #update
-        # pod.update_Classic(newSol)
-        pod.update(newSol)
-        # pod.print_time()
-        ###############################################################################
-        #post processing
-        resTot,errTot,res_ROM,err_R_F=pod.get_conv()
-        Znew=np.array(pod.get_Z()).astype('complex')
+    if final:
+        pod.all_freqs()
+    ###############################################################################
+    #update
+    # pod.update_Classic(newSol)
+    pod.update(newSol)
+    # pod.print_time()
+    ###############################################################################
+    #post processing
+    resTot,errTot,res_ROM,err_R_F=pod.get_conv()
+    fAxis_new,Znew=pod.get_Z()
 
-        res_Plot.append(resTot)
-        err_Plot.append(errTot)
-        res_curves.append(res_ROM)
+    res_Plot.append(resTot)
+    err_Plot.append(errTot)
+    res_curves.append(res_ROM)
 
-        print('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot/np.max(res_Plot)))
+    misc.timeprint('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot/np.max(res_Plot)))
 
-        resDotsX.append(fAxis[solInds])
-        resDotsY.append(res_ROM[solInds])
-        Z.append(Znew)
-        nBasiss.append(iBasis+1)
+    resDotsX.append(fAxis[solInds])
+    resDotsY.append(res_ROM[solInds])
+    Z.append(Znew)
+    fAxes.append(fAxis_new)
+    nBasiss.append(iBasis+1)
 
-        #convergence check
-        if resTot/np.max(res_Plot)<accuracy:
-            break
-    timeMor=timeit.default_timer()-timeStart
-    print('MOR took %f seconds' %timeMor)
-    res_Plots.append(res_Plot)
-    err_Plots.append(err_Plot)
-    Zs.append(Z)
+    #convergence check
+    if final: break
 
-    ZRef=np.zeros(len(fAxisTest)).astype('complex')
-    for i in range(len(fAxisTest)):
-        ZRef[i]=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0])
-
+    if resTot/np.max(res_Plot)<accuracy:
+        final=True
+        misc.timeprint('last iteration')
+timeMor=timeit.default_timer()-timeStart
+print('MOR took %f seconds' %timeMor)
 
 
-plotconfig = {'legendShow': True}
+ZRef=np.zeros(len(fAxisTest)).astype('complex')
+for i in range(len(fAxisTest)):
+    ZRef[i]=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0])
+
+##############################################################################
+# single Pod Plots
+fig=plotfuns.initPlot(title='err,res',logX=True,logY=True,xName='f',yName='val')
+plotfuns.plotLine (fig, fAxis, err_R_F,lineArgs={'name':'err','color':0})
+plotfuns.plotLine (fig, fAxis, res_ROM,lineArgs={'name':'res','color':1})
+plotfuns.showPlot(fig,False)
+
+
+# raise Exception('stop')
+
+plotconfig={'legendShow':True}
+
 fig=plotfuns.initPlot(title='res convergence',logX=False,logY=True,xName='Number of Basis Functions',yName='')
-nBasiss=list(range(50))
-for i in range(len(err_Plots)):
-    plotfuns.plotLine (fig, nBasiss, res_Plots[i],lineArgs={'name':'res1/%d'%2**i,'color':i})
-    plotfuns.plotLine (fig, nBasiss, err_Plots[i],lineArgs={'name':'err1/%d'%2**i,'color':i,'dash':'dash'})
+plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
+plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
 plotfuns.showPlot(fig,show=True)
-plotfuns.exportPlot(fig, 'acc_cav_greedy_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':1,'yRange':ut.listlog([100e3,5e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
+# plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
+
+plotconfig={'legendShow':True,'xSuffix':''}
+plotInds=[]
+fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
+for i in range(len(plotInds)):
+    plotfuns.plotLine (fig, fAxes[plotInds[i]-1], np.abs(Z[plotInds[i]-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
+plotfuns.plotLine (fig, fAxes[-1], np.abs(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':0} )
+# plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
+plotfuns.plotCloud (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,cloudArgs={'name':'FEL','color':'red','size':3} )
+# plotfuns.plotLine (fig, fAxisTest, ref,lineArgs={'name':'FEL','color':4,'dash':'dash'} )
+plotfuns.showPlot(fig,show=True)
+plotfuns.exportPlot(fig, 'SH1_imp_Ord2_1', 'full', path=path['plots'],opts=plotconfig|{ 'legendPos':'topRight', 'xTick': 0.1e9, 'yTick': 1,'yRange':[0.2,2000]})
+
+
+inds,times,names =pod.get_time_for_plot()
+fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
+plotfuns.plotLines (fig, inds, times,curveName=names)
+plotfuns.showPlot(fig,show=True)
+# # plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
+
+# #, 'xTick': 0.2, 'yTick': 1}
 
 
 
-
+# a=np.sum(np.abs(JSrc))
 
 ###############################################################################
-#single Pod Plots
-# # fig=plotfuns.initPlot(title='err,res',logX=True,logY=True,xName='f',yName='val')
-# # plotfuns.plotLine (fig, fAxisOn, err_R_F,lineArgs={'name':'err','color':0})
-# # plotfuns.plotLine (fig, fAxisOn, res_ROM,lineArgs={'name':'res','color':1})
-# # plotfuns.showPlot(fig)
-# # raise Exception('stop')
-# plotconfig={'legendShow':True}
-#
-# fig=plotfuns.initPlot(title='res convergence',logX=False,logY=True,xName='Number of Basis Functions',yName='')
-# plotfuns.plotLine (fig, nBasiss, res_Plot,lineArgs={'name':'res','color':0})
-# plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
-# plotfuns.showPlot(fig,show=True)
-# # plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
-#
-# # plotconfig={'legendShow':True,'xSuffix':''}
-# plotInds=[5,10]
-# fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
-# for i in range(len(plotInds)):
-#     plotfuns.plotLine (fig, fAxis, np.abs(Z[plotInds[i]-1])  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
-# plotfuns.plotLine (fig, fAxis, np.abs(Z[-1])  ,lineArgs={'name':'MOR_%d' %len(Z),'color':0} )
-# plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef) ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-# plotfuns.showPlot(fig,show=True)
-# # plotfuns.exportPlot(fig, 'CubeWire_imp1', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'botRight', 'xTick': 0.5e9, 'yTick': 1,'yRange':ut.listlog([0.02,50])})
-#
-#
-# inds,times,names =pod.get_time_for_plot()
-# fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
-# plotfuns.plotLines (fig, inds, times,curveName=names)
-# plotfuns.showPlot(fig,show=True)
-# # plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
-#
-# #, 'xTick': 0.2, 'yTick': 1}
+##Data export
+exportZ=True
+dbName='SH1_Mor_1'  
+order=1
+runId=1
+
+if not exportZ:
+    raise Exception()
+
+meshId=0
+key = "%d/%d/%d" % (meshId, order, runId)
+with h5py.File(dbName+'.hdf5', 'a') as f:
+        if key in f.keys():
+            x = input('group already exists, overwrite? (y/n)')
+            if x == 'y':
+                del f[key]
+            else:
+                raise Exception('group already exists')
+        grp = f.create_group(key)
+        grp.create_dataset('fAxis', data=fAxes[-1])
+        grp.create_dataset('ZRe'  , data=np.real(Z[-1]))
+        grp.create_dataset('ZIm'  , data=np.imag(Z[-1]))
+        grp.create_dataset('ZAbs' , data=np.abs (Z[-1]))
+        grp.create_dataset('acc'  , data=accuracy)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

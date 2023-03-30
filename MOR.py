@@ -7,6 +7,7 @@ Created on Mon Dec  5 12:16:01 2022
 
 import subprocess
 import timeit
+import time
 import warnings
 
 import numpy as np
@@ -15,7 +16,8 @@ import scipy.linalg as slina
 import zmq
 
 import port
-import utility as ut
+from myLibs import utility as ut
+import misc
 import joblib as jl
 
 
@@ -27,42 +29,55 @@ def getFelisConstants():
     return (eps,mu,c0) #(eps,mu,c0)=MOR.getFelisConstants()
 
 
-def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
+def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
 
     #  create fAxis
     fAxis = np.linspace(fmin, fmax, nTrain)
 
     #  delete old files
-    subprocess.call("del /q /s " + path['sols'] + "\\train*", shell=True)
+    if felis_todos['train']:
+        subprocess.call("del /q /s " + path['sols'] + "\\train*", shell=True)
+        subprocess.call("del /q /s " + path['sols'] + "\\freqs.csv", shell=True)
+    else:
+        fExisting = ut.csvRead(path['sols'] + 'freqs.csv',delimiter=',')
+        fAxis= np.sort(np.append(fAxis,fExisting))
+        nans=0
+        for i in range(len(fAxis)-1):
+            if fAxis[i+1]-fAxis[i]<1e-10*fAxis[0]:
+                fAxis[i]=np.NAN
+                nans+=1
+        fAxis=np.sort(fAxis)[0:-nans]
 
     #  Create socket to talk to server
     context = zmq.Context()
-    print("Connecting to Felis")
+    misc.timeprint("Connecting to Felis")
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5555")
+    misc.timeprint("Connected to Felis")
 
-    if init_felis:
+    if felis_todos['init']:
+        misc.timeprint("Initializing Felis")
         socket.send_string("initialize")
         message = socket.recv()
-        print(message)
+        misc.timeprint(message)
 
     #recreate matrices
-    if recreate_mats:
+    if felis_todos['mats']:
         subprocess.call("del /q /s " + path['mats'] + "\\*", shell=True)
         #  export system matrices
         socket.send_string("export_mats")
         message = socket.recv()
-        print(message)
+        misc.timeprint(message)
 
         if cond > 0:
             socket.send_string("export_SIBc: %f" %fmin)
             message = socket.recv()
-            print(message)
+            misc.timeprint(message)
 
         socket.send_string("export_RHSs: %f, %f, %d" % (fmin, fmax, nTrain))
         message = socket.recv()
-        print(message)
-
+        misc.timeprint(message)
+    
     ###############################################################################
     ###import/create constant matrices
     CC = pRead(path['mats'] + 'CC')
@@ -76,45 +91,45 @@ def createMatrices(init_felis,recreate_mats,recreate_test,pRead,path,cond,fmin,f
     ports = []
     for i in range(nPorts):
         ports.append(port.Port(path['ports'] + str(i) + '\\', pRead, nModes,fAxis))
-        print('port read modes')
+        misc.timeprint('port read modes')
         ports[i].readModes()
-        print('port read maps')
+        misc.timeprint('port read maps')
         ports[i].readMaps()
-        print('port compute factors')
+        misc.timeprint('por t compute factors')
         ports[i].computeFactors()
-        print('port read EInc')
-        ports[i].readEInc()
+        # misc.timeprint('port read EInc')
+        # ports[i].readEInc()
 
 
 
-    print('read RHS')
+    misc.timeprint('read RHS')
     RHS = pRead(path['mats'] + 'RHSs').tocsc()  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
-    print('read Js')
+    misc.timeprint('read Js')
     JSrc = pRead(path['mats'] + 'Js').tocsc() #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
 
     fAxisTest,fIndsTest = ut.closest_values(fAxis, np.linspace(fmin,fmax,nTest),returnInd=True)  # select test frequencies from fAxis
     # create test data
 
-    if recreate_mats and not recreate_test:
-        recreate_test=True
+    if felis_todos['mats'] and not felis_todos['test']:
+        felis_todos['test']=True
         warnings.warn('if recreate_mats is True, recreate_test also has to be True')
 
-    if recreate_test:
+    if felis_todos['test']:
         subprocess.call("del /q /s " + path['sols'] + "\\test*", shell=True)
 
     runtimeTest=0
     for i in range(nTest):
-        if recreate_test:
+        if felis_todos['test']:
             timeStart = timeit.default_timer()
             socket.send_string("solve: test_%d %f" % (i, fAxisTest[i]))
             message = socket.recv()
             runtimeTest+=timeit.default_timer() - timeStart
-            print(message)
+            misc.timeprint(message)
         if i == 0:
             sols_test = pRead(path['sols'] + 'test_0')
         else:
             sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
-    print('runtime Felis for test data: %f' %runtimeTest)
+    misc.timeprint('runtime Felis for test data: %f' %runtimeTest)
     return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
 
 
@@ -131,9 +146,9 @@ def nested_QR(U,R,a):
     return (U,R)
 
 class Pod_adaptive:
-    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,SolsTest,nMOR,nMax):
+    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,SolsTest,nMax):
         self.fAxis=fAxis
-        self.findsEval=list(range(len(fAxis)))
+        self.fIndsEval=list(range(len(fAxis)))
         self.ports=ports
         self.Mats=Mats
         self.factors=factors
@@ -147,7 +162,7 @@ class Pod_adaptive:
         self.res_ROM=np.zeros(len(fAxis))
         self.err_R_F=np.zeros(len(fIndsTest))
         self.Z=np.zeros(len(fAxis)).astype('complex')
-        self.nMOR=nMOR
+        self.nMOR=len(fAxis)
         self.solInds=[]
         self.parallel=False
         self.times={
@@ -185,6 +200,8 @@ class Pod_adaptive:
 
 
     def MOR_loop(self, MatsR, Uh, fInd):
+        if not fInd in self.fIndsEval:
+            return
         f = self.fAxis[fInd]
 
         start = timeit.default_timer()
@@ -287,13 +304,13 @@ class Pod_adaptive:
                 indNew= np.round((self.fIndsEval[ind_fIndsEval]+self.fIndsEval[ind_fIndsEval+1])/2).astype(int)
                 self.fIndsEval=np.insert(self.fIndsEval,ind_fIndsEval+1,indNew)
             else:
-                print('no refinement possible for higher frequency')
+                misc.timeprint('no refinement possible for higher frequency')
         if ind_fIndsEval-1 >= 0:
             if self.fIndsEval[ind_fIndsEval]-self.fIndsEval[ind_fIndsEval-1]>1:
                 indNew= np.round((self.fIndsEval[ind_fIndsEval]+self.fIndsEval[ind_fIndsEval-1])/2).astype(int)
                 self.fIndsEval=np.insert(self.fIndsEval,ind_fIndsEval,indNew)
             else:
-                print('no refinement possible for lower frequency')
+                misc.timeprint('no refinement possible for lower frequency')
 
     def select_new_freq_greedy(self):
         if len(self.solInds) == 0:
@@ -320,21 +337,31 @@ class Pod_adaptive:
             self.solInds.append(np.argmax(self.res_ROM * facts))
         return self.fAxis[self.solInds[-1]]
 
+    def register_new_freq(self, freq):
+        self.solInds.append(np.where(np.abs((self.fAxis - freq))<(freq/1e10))[0][0])
+        self.fIndsEval=np.sort(np.append(self.fIndsEval,self.solInds[-1]))
+        self.fAxisGreedy_treeRefine(self.solInds[-1])
+    
+    def all_freqs(self):
+        self.fIndsEval=np.array(range(len(self.fAxis)))
 
 
     def get_conv(self):
-        resTot=np.linalg.norm(self.res_ROM)
+        resTot=np.linalg.norm(self.res_ROM[self.fIndsEval])
         errTot=np.linalg.norm(self.err_R_F)
-        return resTot,errTot,self.res_ROM,self.err_R_F,
+        return resTot,errTot,self.res_ROM[self.fIndsEval],self.err_R_F
 
     def get_Z(self):
-        return self.Z
+        return self.fAxis[self.fIndsEval],self.Z[self.fIndsEval]
 
     def getRHS(self,fInd):
         return self.RHS[:,fInd].toarray()[:,0]
 
     def getJSrc(self,fInd):
         return self.JSrc[:,fInd].toarray()[:,0]
+    
+    def get_fAxis(self):
+        return self.fAxis
 
 
 

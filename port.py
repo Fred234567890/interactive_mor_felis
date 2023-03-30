@@ -56,9 +56,9 @@ class Port:
         self.M2D2D=self.matRead(self.path+'M2D2D')
         self.M2D3D=self.matRead(self.path+'M2D3D')
 
-    def readEInc(self):
-        self.EIncs=self.matRead(self.path+'EInc')
-        
+    # def readEInc(self):
+    #     self.EIncs=self.matRead(self.path+'EInc')
+    #
 
     def computeFactors(self):
         kappa=lambda f: 2*np.pi*f/self.c0
@@ -157,18 +157,18 @@ class Port:
         self.U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVecs
         self.U=U
 
-    def getSParam(self,u,fInd,ind):
-        mType=self.getModeType(ind)
-        Einc=self.EIncs[:,fInd]
-        if mType=='TE':
-            Etmp=-self.M2D2D @ Einc
-            Etmp= self.M2D3D @ u + Etmp
-            np.dot(Etmp,self.getModeVec(ind))
-
-
-    def getSParams(self,u,fInd):
-        for ind in range (self.getNumModes()) :
-            self.getSParam(u,fInd,ind)
+    # def getSParam(self,u,fInd,ind):
+    #     mType=self.getModeType(ind)
+    #     Einc=self.EIncs[:,fInd]
+    #     if mType=='TE':
+    #         Etmp=-self.M2D2D @ Einc
+    #         Etmp= self.M2D3D @ u + Etmp
+    #         np.dot(Etmp,self.getModeVec(ind))
+    #
+    #
+    # def getSParams(self,u,fInd):
+    #     for ind in range (self.getNumModes()) :
+    #         self.getSParam(u,fInd,ind)
 
 
 

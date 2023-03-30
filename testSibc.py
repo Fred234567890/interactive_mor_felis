@@ -4,15 +4,14 @@ Created on Tue Dec  6 16:39:17 2022
 
 @author: Fred
 """
-import plotfuns
+from myLibs import plotfuns
 
 eps  = 8.8541878e-12 
 mu = 1.2566371e-06 
 c0=-1 
     
 
-import utility as ut
-import plotfuns
+from myLibs import utility as ut
 
 import numpy as np
 import numpy.linalg as nlina
