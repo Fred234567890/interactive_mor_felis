@@ -7,19 +7,16 @@ Created on Mon Dec  5 12:16:01 2022
 
 import subprocess
 import timeit
-import time
-import warnings
 
+import joblib as jl
 import numpy as np
 import numpy.linalg as nlina
 import scipy.linalg as slina
 import zmq
-
-import port
 from myLibs import utility as ut
-import misc
-import joblib as jl
 
+import misc
+import port
 
 
 def getFelisConstants():
@@ -27,6 +24,12 @@ def getFelisConstants():
     mu = 1.2566371e-06
     c0 = 1/np.sqrt(mu*eps)
     return (eps,mu,c0) #(eps,mu,c0)=MOR.getFelisConstants()
+
+def writeFAxis(fileName,values):
+    with open(fileName, 'w') as f:
+        f.write(str(len(values))+'\n')
+        for i in range(len(values)):
+            f.write(str(values[i])+'\n')
 
 
 def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
@@ -39,14 +42,30 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         subprocess.call("del /q /s " + path['sols'] + "\\train*", shell=True)
         subprocess.call("del /q /s " + path['sols'] + "\\freqs.csv", shell=True)
     else:
-        fExisting = ut.csvRead(path['sols'] + 'freqs.csv',delimiter=',')
+        fExisting = np.sort(ut.csvRead(path['sols'] + 'freqs.csv',delimiter=',')[:,0])
         fAxis= np.sort(np.append(fAxis,fExisting))
         nans=0
+        # diff=np.zeros(len(fAxis)-1)
+        ref=fAxis[0]
         for i in range(len(fAxis)-1):
-            if fAxis[i+1]-fAxis[i]<1e-10*fAxis[0]:
+            # diff[i]=fAxis[i+1]-fAxis[i]
+            if fAxis[i+1]-fAxis[i]<1e-10*ref:
                 fAxis[i]=np.NAN
                 nans+=1
-        fAxis=np.sort(fAxis)[0:-nans]
+        if nans>0:
+            fAxis=np.sort(fAxis)[0:-nans]
+
+    if not felis_todos['exci']:
+        # check if fAxis changed and rhs has to be recalculated
+        fAxisChanged=False
+        try:
+            frhsOld=ut.csvRead(path['rhs'] + 'fAxis.csv',delimiter=',')[1:,0]
+            if not np.allclose(frhsOld,fAxis,rtol=1e-10,atol=1e100):
+                fAxisChanged=True
+        except:
+            ...
+        if fAxisChanged:
+            raise Exception('fAxis changed, redo RHS')
 
     #  Create socket to talk to server
     context = zmq.Context()
@@ -63,7 +82,8 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
 
     #recreate matrices
     if felis_todos['mats']:
-        subprocess.call("del /q /s " + path['mats'] + "\\*", shell=True)
+        subprocess.call("del /q " + path['mats'] + "\\*", shell=True)
+        subprocess.call("del /q /s " + path['ports'] + "\\*", shell=True)
         #  export system matrices
         socket.send_string("export_mats")
         message = socket.recv()
@@ -74,10 +94,14 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
             message = socket.recv()
             misc.timeprint(message)
 
-        socket.send_string("export_RHSs: %f, %f, %d" % (fmin, fmax, nTrain))
+    if felis_todos['exci']:
+        subprocess.call("del /q " + path['rhs'] + "\\*", shell=True)
+        writeFAxis(path['rhs'] + 'fAxis.csv', fAxis)
+        # socket.send_string("export_RHSs: %f, %f, %d" % (fmin, fmax, nTrain))
+        socket.send_string("export_RHSs")
         message = socket.recv()
         misc.timeprint(message)
-    
+
     ###############################################################################
     ###import/create constant matrices
     CC = pRead(path['mats'] + 'CC')
@@ -95,7 +119,7 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         ports[i].readModes()
         misc.timeprint('port read maps')
         ports[i].readMaps()
-        misc.timeprint('por t compute factors')
+        misc.timeprint('port compute factors')
         ports[i].computeFactors()
         # misc.timeprint('port read EInc')
         # ports[i].readEInc()
@@ -103,16 +127,12 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
 
 
     misc.timeprint('read RHS')
-    RHS = pRead(path['mats'] + 'RHSs').tocsc()  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
+    RHS = pRead(path['rhs'] + 'RHSs').tocsc()  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
     misc.timeprint('read Js')
-    JSrc = pRead(path['mats'] + 'Js').tocsc() #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
+    JSrc = pRead(path['rhs'] + 'Js').tocsc() #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
 
     fAxisTest,fIndsTest = ut.closest_values(fAxis, np.linspace(fmin,fmax,nTest),returnInd=True)  # select test frequencies from fAxis
     # create test data
-
-    if felis_todos['mats'] and not felis_todos['test']:
-        felis_todos['test']=True
-        warnings.warn('if recreate_mats is True, recreate_test also has to be True')
 
     if felis_todos['test']:
         subprocess.call("del /q /s " + path['sols'] + "\\test*", shell=True)
@@ -174,11 +194,14 @@ class Pod_adaptive:
             'res_port'     :np.zeros((nMax,len(fAxis))),
             'res_mats'     :np.zeros((nMax,len(fAxis))),
         }
+        self.resTMP=np.zeros(np.shape(Mats[0])[0]).astype('complex')
+        self.uROM=None
 
 
     def update(self,newSol):
         if self.sols==[]:
             self.sols=newSol
+            self.uROM=newSol[:,0]*0
         else:
             self.sols=np.append(self.sols, newSol, axis=1)
         self.nBasis=np.shape(self.sols)[1]
@@ -186,6 +209,8 @@ class Pod_adaptive:
         self.U,self.R=nested_QR(self.U,self.R,newSol)
 
         Uh=self.U.conj().T
+
+        self.Ushort=self.U[self.inds_u_proj,:]
 
         MatsR = []
         for i in range(len(self.Mats)):
@@ -195,7 +220,13 @@ class Pod_adaptive:
             self.ports[i].setU(self.U)
             self.ports[i].create_reduced_modeMats()
 
-        jl.Parallel(n_jobs=1, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
+        n_jobs = 1
+        if n_jobs== 1:
+            for fInd in range(len(self.fAxis)):
+                self.MOR_loop(MatsR, Uh, fInd)
+        else:
+            raise Exception('parallel currently disabled')
+            jl.Parallel(n_jobs=n_jobs, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
 
 
@@ -233,17 +264,18 @@ class Pod_adaptive:
         self.add_time('solve_LGS', start,fInd)
 
         start = timeit.default_timer()
-        uROM = (self.U @ vMor)  # [:,0]
+        self.uROM[self.inds_u_proj]=self.Ushort @ vMor
+        # self.uROM[self.inds_u_proj] = (self.U[self.inds_u_proj,:] @ vMor)  # [:,0]
+        # self.uROM = (self.U @ vMor)  # [:,0]
         self.add_time('solve_proj', start,fInd)
-
         if fInd in self.fIndsTest:
             i = np.where(self.fIndsTest == fInd)[0][0]
-            self.err_R_F[i] = nlina.norm(uROM - self.SolsTest[:, i])
+            self.err_R_F[i] = nlina.norm(self.uROM - self.SolsTest[:, i])
 
-        self.residual_estimation(fInd, uROM)
+        self.residual_estimation(fInd)
 
         # postprocess solution: impedance+sParams
-        self.Z[fInd] = impedance(uROM, self.getJSrc(fInd))
+        self.Z[fInd] = impedance(self.uROM, self.getJSrc(fInd))
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
 
     def sParam(self,u,f):
@@ -261,10 +293,25 @@ class Pod_adaptive:
         for i in range(len(self.Mats)):
             self.Mats_res[i]=self.Mats_res[i][:,self.inds_u_res]
 
-    def residual_estimation(self, fInd, uROM):
+    def set_projection_indices(self):
+        """
+        Set the indices of the projection matrix that are used to project the reduced basis onto the solution. These
+        indices constist of the residual indices and the indices of the beam.
+        Returns
+        -------
+
+        """
+        inds_u_res=self.inds_u_res
+        inds_beam=self.RHS[:,0].indices
+        inds_port=self.ports[0].get3Dinds()
+        for i in range(1,len(self.ports)):
+            inds_port=np.append(inds_port,self.ports[i].get3Dinds())
+        self.inds_u_proj=np.sort(np.unique(np.concatenate((inds_u_res,inds_beam,inds_port))))
+
+    def residual_estimation(self, fInd):
         f = self.fAxis[fInd]
         start = timeit.default_timer()
-        uROM_short= uROM[self.inds_u_res]
+        uROM_short = self.uROM[self.inds_u_res]
         for i in range(len(self.Mats)):
             if i == 0:
                 RHSrom = self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
@@ -274,10 +321,12 @@ class Pod_adaptive:
 
         start = timeit.default_timer()
         for i in range(len(self.ports)):
-            RHSrom += self.ports[i].multiplyVecPortMat(uROM,fInd)[self.residual_indices]
+            self.resTMP[self.ports[i].get3Dinds()]=self.ports[i].multiplyVecPortMatSparse(self.uROM,fInd)
+            RHSrom += self.resTMP[self.residual_indices]
+            self.resTMP[self.ports[i].get3Dinds()] *=0
         self.add_time('res_port', start,fInd)
 
-        self.res_ROM[fInd] = nlina.norm(self.getRHS(fInd)[self.residual_indices] - RHSrom)
+        self.res_ROM[fInd] = nlina.norm(self.getRHS(fInd)[self.residual_indices] - RHSrom)/np.sqrt(len(self.residual_indices))
 
     def add_time(self, timeName, start,fInd):
         self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)

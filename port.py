@@ -141,18 +141,20 @@ class Port:
             A+= self.getFactor(ind, fInd) *self.getModeMat (ind)
         return A
 
-    def MultiplyModeMat(self,ind,x,fInd):
+    def MultiplyModeMat(self,ind,fInd):
         fac=self.getFactor(ind, fInd)
         mVec=self.getModeVec (ind).data
-        return mVec * (fac * (np.dot(mVec.conj(),x)))
+        return mVec * (fac * (np.dot(mVec.conj(),self.x_short)))
 
-    def multiplyVecPortMat(self,x,fInd):  #todo: exploit the rank 1 matrix property for the multiplication
-        x_short=x[self.getModeVec(0).indices]
-        y=np.zeros(np.shape(x)).astype('complex')
+    def multiplyVecPortMatSparse(self,x,fInd):
+        self.x_short=x[self.getModeVec(0).indices]
+        y=np.zeros(len(self.x_short)).astype('complex')
         for ind in range (self.getNumModes()) :
-            y[self.getModeVec(0).indices]+= self.MultiplyModeMat(ind,x_short,fInd)
+            y+= self.MultiplyModeMat(ind,fInd)
         return y
 
+    def get3Dinds(self):
+        return self.getModeVec(0).indices
     def setU(self,U):
         self.U_short=U[self.getModeVec(0).indices,:]  #select only the rows of U according to the sparsity structure of the modeVecs
         self.U=U

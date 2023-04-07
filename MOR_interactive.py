@@ -23,7 +23,12 @@ import h5py
 
 # oc = oct2py.Oct2Py()
 # pRead=lambda path:ut.pRead(oc, path)
-pRead=lambda path:ut.petscRead(path)
+pRead=lambda path:ut.petscRead(path+'.pmat')
+def filterZ(Z,doFiltering):
+    if not doFiltering:
+        return Z
+    return Z-np.real(Z[0])
+
 
 import os
 os.environ["PATH"] = os.environ["PATH"] + ";D:\\Ordnerordner\\Software\\pythonEnvironments\\python3_10\\lib\\site-packages\\kaleido\\executable\\"
@@ -37,19 +42,42 @@ path['mats']    = path['felis_bin']+'mats\\'
 # path['mats']    = path['felis_bin']+'interactive_mor_felis\\mats\\'
 path['ports']   = path['mats']+'ports\\'
 path['sols']    = path['mats']+'sols\\'
+path['rhs']    = path['mats']+'rhs\\'
 path['sysmats']    = path['mats']+'systemMats\\'
 path['plots']   = path['workDir']+'_new_images\\'
 
 
-# modelName='accelerator_cavity'
-symmetry=2
-nMax =250
+#######MOR CONFIG
+nMax = 30
 f_data= {'fmin' : 0.08e9,
-         'fmax' : 1e9,
-         'nmor' : 10000,
-         'ntest': 50,          # 1577.186820
+         'fmax' : 0.3e9,
+         'nmor' : 200,
+         'ntest': 5,          # 1577.186820
          }
+
+frac_Greedy=8
+frac_Sparse=8
 accuracy=1e-3
+NChecks=3
+doFiltering=True
+
+plotZs=['a'] #a,r,i
+
+exportZ=False
+dbName='SH12sibc_Mor_1'
+orderHex=0
+orderTet=0
+
+
+felis_todos=dict()
+felis_todos['init'] =False
+felis_todos['mats'] =False
+felis_todos['exci'] =False
+felis_todos['test'] =True
+felis_todos['train']=False
+
+#########MODEL CONFIG
+symmetry=2
 
 nPorts=2
 nModes={'TB':0,
@@ -57,14 +85,10 @@ nModes={'TB':0,
         'TE':0,
         'TM':1,}
 
+cond=1.4e6 #5.8e5
 cond=0 #5.8e5
 
 # launch_felis =True
-felis_todos=dict()
-felis_todos['init'] =False
-felis_todos['mats'] =False  
-felis_todos['test'] =False   
-felis_todos['train']=False
 ###############################################################################
 ###create constant matrices
 # if launch_felis:
@@ -87,7 +111,7 @@ factorSibc= lambda freq:1j*w(freq)*mu/np.sqrt(1j*mu*w(freq)/(cond+1j*eps*w(freq)
 Mats=[CC,ME,MC,Sibc]
 factors=[
     lambda f:1,
-    lambda f:-kap(f)**2,    
+    lambda f:-kap(f)**2,
     lambda f:1j*w(f)*mu,
     lambda f:factorSibc(f)/factorSibc(fAxis[0])
         ]
@@ -95,6 +119,7 @@ factors=[
 
 
 
+nChecks=NChecks
 final=False
 res_Plot=[]
 err_Plot=[]
@@ -109,8 +134,9 @@ fAxes=[]
 
 timeStart=timeit.default_timer()
 pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,nMax)
-pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/16)).astype(int))
-pod.fAxisGreedy(1/32)
+pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int))
+pod.set_projection_indices()
+pod.fAxisGreedy(1/frac_Greedy)
 for iBasis in range(nMax):
     ###############################################################################
 
@@ -150,6 +176,7 @@ for iBasis in range(nMax):
 
     resDotsX.append(fAxis[solInds])
     resDotsY.append(res_ROM[solInds])
+    Znew=filterZ(Znew,doFiltering)
     Z.append(Znew)
     fAxes.append(fAxis_new)
     nBasiss.append(iBasis+1)
@@ -158,6 +185,12 @@ for iBasis in range(nMax):
     if final: break
 
     if resTot/np.max(res_Plot)<accuracy:
+        nChecks-=1
+        print('Accuracy reached, nChecks reduced to '+str(nChecks))
+    else:
+        nChecks=NChecks
+
+    if nChecks==0:
         final=True
         misc.timeprint('last iteration')
 timeMor=timeit.default_timer()-timeStart
@@ -166,8 +199,9 @@ print('MOR took %f seconds' %timeMor)
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
-    ZRef[i]=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0])
-
+    Znew=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0])
+    ZRef[i]=Znew
+ZRef=filterZ(ZRef, doFiltering)
 ##############################################################################
 # single Pod Plots
 fig=plotfuns.initPlot(title='err,res',logX=True,logY=True,xName='f',yName='val')
@@ -186,17 +220,31 @@ plotfuns.plotLine (fig, nBasiss, err_Plot,lineArgs={'name':'err','color':1})
 plotfuns.showPlot(fig,show=True)
 # plotfuns.exportPlot(fig, 'CubeWire_conv1', 'half', path=path['plots'],opts=plotconfig|{'yTick':3,'yRange':ut.listlog([1e-6,1e7]),'yFormat': '~e'})#,'xRange':ut.listlog([1,55]),'tickvalsX':[1,2,5,10,20,50,100]
 
-plotconfig={'legendShow':True,'xSuffix':''}
-plotInds=[]
-fig=plotfuns.initPlot(title='abs',logX=False,logY=True,xName='f in Hz',yName='Z in Ohm')
-for i in range(len(plotInds)):
-    plotfuns.plotLine (fig, fAxes[plotInds[i]-1], np.abs(Z[plotInds[i]-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
-plotfuns.plotLine (fig, fAxes[-1], np.abs(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':0} )
-# plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-plotfuns.plotCloud (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,cloudArgs={'name':'FEL','color':'red','size':3} )
-# plotfuns.plotLine (fig, fAxisTest, ref,lineArgs={'name':'FEL','color':4,'dash':'dash'} )
-plotfuns.showPlot(fig,show=True)
-plotfuns.exportPlot(fig, 'SH1_imp_Ord2_1', 'full', path=path['plots'],opts=plotconfig|{ 'legendPos':'topRight', 'xTick': 0.1e9, 'yTick': 1,'yRange':[0.2,2000]})
+
+for plotZ in plotZs:
+    if plotZ=='a':
+        absReIm=lambda x: np.abs(x)
+        logY=True
+        title='abs'
+    if plotZ=='r':
+        absReIm=lambda x: np.real(x)
+        logY=False
+        title='re'
+    if plotZ=='i':
+        absReIm=lambda x: np.imag(x)
+        logY=False
+        title='im'
+    plotconfig={'legendShow':True,'xSuffix':''}
+    plotInds=[]
+    fig=plotfuns.initPlot(title=title,logX=False,logY=logY,xName='f in Hz',yName='Z in Ohm')
+    for i in range(len(plotInds)):
+        plotfuns.plotLine (fig, fAxes[plotInds[i]-1], absReIm(Z[plotInds[i]-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
+    plotfuns.plotLine (fig, fAxes[-1], absReIm(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':0} )
+    # plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
+    plotfuns.plotCloud (fig, fAxisTest, absReIm(ZRef)/symmetry**2 ,cloudArgs={'name':'FEL','color':'red','size':3} )
+    # plotfuns.plotLine (fig, fAxisTest, ref,lineArgs={'name':'FEL','color':4,'dash':'dash'} )
+    plotfuns.showPlot(fig,show=True)
+    # plotfuns.exportPlot(fig, 'SH12_imp_Ord2_sibc_1', 'full', path=path['plots'],opts=plotconfig|{ 'legendPos':'topRight', 'xTick': 0.1e9, 'yTick': 1,'yRange':[0.2,2000]})
 
 
 inds,times,names =pod.get_time_for_plot()
@@ -213,31 +261,27 @@ plotfuns.showPlot(fig,show=True)
 
 ###############################################################################
 ##Data export
-exportZ=True
-dbName='SH1_Mor_1'  
-order=1
+
 runId=1
 
-if not exportZ:
-    raise Exception()
-
-meshId=0
-key = "%d/%d/%d" % (meshId, order, runId)
-with h5py.File(dbName+'.hdf5', 'a') as f:
-        if key in f.keys():
-            x = input('group already exists, overwrite? (y/n)')
-            if x == 'y':
-                del f[key]
-            else:
-                raise Exception('group already exists')
-        grp = f.create_group(key)
-        grp.create_dataset('fAxis', data=fAxes[-1])
-        grp.create_dataset('ZRe'  , data=np.real(Z[-1]))
-        grp.create_dataset('ZIm'  , data=np.imag(Z[-1]))
-        grp.create_dataset('ZAbs' , data=np.abs (Z[-1]))
-        grp.create_dataset('acc'  , data=accuracy)
-
-
+if  exportZ:
+    meshId=0
+    key = "%d/%d.%d/%d" % (meshId, orderHex,orderTet, runId)
+    with h5py.File(dbName+'.hdf5', 'a') as f:
+            if key in f.keys():
+                x = input('group already exists, overwrite? (y/n)')
+                if x == 'y':
+                    del f[key]
+                else:
+                    raise Exception('group already exists')
+            grp = f.create_group(key)
+            grp.create_dataset('fAxis', data=fAxes[-1])
+            grp.create_dataset('ZRe'  , data=np.real(Z[-1]))
+            grp.create_dataset('ZIm'  , data=np.imag(Z[-1]))
+            grp.create_dataset('ZAbs' , data=np.abs (Z[-1]))
+            grp.create_dataset('acc'  , data=accuracy)
+else:
+    print('Z not exported!')
 
 
 
