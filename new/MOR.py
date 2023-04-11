@@ -12,7 +12,6 @@ import joblib as jl
 import numpy as np
 import numpy.linalg as nlina
 import scipy.linalg as slina
-import scipy
 import zmq
 from myLibs import utility as ut
 
@@ -174,14 +173,12 @@ class Pod_adaptive:
         self.Mats=Mats
         self.factors=factors
         self.RHS=RHS
-        self.RHS_dense=RHS[np.unique(np.sort(RHS.indices)),:].toarray()
         self.fIndsTest=fIndsTest
         self.SolsTest=SolsTest
         self.JSrc=JSrc
         self.sols=[]
         self.U=[]
         self.R=[]
-        # self.rhs_reds=np.zeros((nMax,len(fAxis))).astype('complex')
         self.res_ROM=np.zeros(len(fAxis))
         self.err_R_F=np.zeros(len(fIndsTest))
         self.Z=np.zeros(len(fAxis)).astype('complex')
@@ -191,15 +188,7 @@ class Pod_adaptive:
         self.times={
             'mat_assemble' :np.zeros((nMax,len(fAxis))),
             'port_assemble':np.zeros((nMax,len(fAxis))),
-            'project_RHS'  :np.zeros((nMax,len(fAxis))),
-            # 'project_RHS_2_1'  :np.zeros((nMax,len(fAxis))),
-            # 'project_RHS_2_2'  :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS'    :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_np' :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_sci':np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_cg' :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_bicg':np.zeros((nMax,len(fAxis))),
-            'solve_LGS_QR' :np.zeros((nMax,len(fAxis))),
+            'solve_LGS'    :np.zeros((nMax,len(fAxis))),
             'solve_proj'   :np.zeros((nMax,len(fAxis))),
             'err'          :np.zeros((nMax,len(fAxis))),
             'res_port'     :np.zeros((nMax,len(fAxis))),
@@ -221,11 +210,7 @@ class Pod_adaptive:
 
         Uh=self.U.conj().T
 
-
-        Uh_rhs=Uh[:,np.unique(np.sort(self.RHS.indices))]
-
         self.Ushort=self.U[self.inds_u_proj,:]
-        self.uROMshort=np.zeros(len(self.inds_u_proj)).astype('complex')
 
         MatsR = []
         for i in range(len(self.Mats)):
@@ -238,14 +223,14 @@ class Pod_adaptive:
         n_jobs = 1
         if n_jobs== 1:
             for fInd in range(len(self.fAxis)):
-                self.MOR_loop(MatsR, Uh, Uh_rhs, fInd)
+                self.MOR_loop(MatsR, Uh, fInd)
         else:
             raise Exception('parallel currently disabled')
             jl.Parallel(n_jobs=n_jobs, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
 
 
-    def MOR_loop(self, MatsR, Uh, Uh_rhs, fInd):
+    def MOR_loop(self, MatsR, Uh, fInd):
         if not fInd in self.fIndsEval:
             return
         f = self.fAxis[fInd]
@@ -272,58 +257,25 @@ class Pod_adaptive:
         # start=timeit.default_timer()
         # self.add_time('projectR', start)
 
-        # start = timeit.default_timer()
-        # rhs_red_old = Uh @ self.getRHS(fInd)
-        # self.add_time('project_RHS_1', start,fInd)
-
-
         start = timeit.default_timer()
-        rhs_red= Uh_rhs @ self.RHS_dense[:,fInd]
-        self.add_time('project_RHS', start,fInd)
-
-        # start = timeit.default_timer()
-        # rhs_red=self.rhs_reds[0:n+1,fInd]
-        # self.add_time('project_RHS_2_2', start,fInd)
-
-        # Alternative solvers
-        # start=timeit.default_timer()
-        # vMor = slina.solve(AROM, rhs_red)
-        # self.add_time('solve_LGS_sci', start,fInd)
-        # start = timeit.default_timer()
-        # vMor = nlina.solve(AROM, rhs_red)
-        # self.add_time('solve_LGS_np', start,fInd)
-        # if fInd==0:
-        #     self.vMor_old=vMor
-        # start = timeit.default_timer()
-        # vMor,code = scipy.sparse.linalg.cg(AROM, rhs_red, x0=self.vMor_old)
-        # if not code ==0:
-        #     print('cg did not converge: '+str(code))
-        # self.add_time('solve_LGS_cg', start,fInd)
-        # start = timeit.default_timer()
-        # vMor = scipy.sparse.linalg.bicg(AROM, rhs_red, x0=self.vMor_old)[0]
-        # self.add_time('solve_LGS_bicg', start,fInd)
-        # self.vMor_old=vMor
-
-        start = timeit.default_timer()
-        # rhs_red = Uh @ self.getRHS(fInd)
+        rhs_red = Uh @ self.getRHS(fInd)
         AQ, AR = slina.qr(AROM)
         vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
-        self.add_time('solve_LGS_QR', start,fInd)
-
+        self.add_time('solve_LGS', start,fInd)
 
         start = timeit.default_timer()
-        self.uROMshort[:]=self.Ushort @ vMor
+        self.uROM[self.inds_u_proj]=self.Ushort @ vMor
+        # self.uROM[self.inds_u_proj] = (self.U[self.inds_u_proj,:] @ vMor)  # [:,0]
+        # self.uROM = (self.U @ vMor)  # [:,0]
         self.add_time('solve_proj', start,fInd)
-
-
         if fInd in self.fIndsTest:
             i = np.where(self.fIndsTest == fInd)[0][0]
-            self.err_R_F[i] = nlina.norm(self.uROMshort - self.SolsTest[self.inds_u_proj, i])
+            self.err_R_F[i] = nlina.norm(self.uROM - self.SolsTest[:, i])
 
         self.residual_estimation(fInd)
 
         # postprocess solution: impedance+sParams
-        self.Z[fInd] = impedance(self.uROMshort, self.getJSrc(fInd)[self.inds_u_proj])
+        self.Z[fInd] = impedance(self.uROM, self.getJSrc(fInd))
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
 
     def sParam(self,u,f):

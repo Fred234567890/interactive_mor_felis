@@ -48,7 +48,7 @@ path['plots']   = path['workDir']+'_new_images\\'
 
 
 #######MOR CONFIG
-nMax = 10
+nMax = 30
 f_data= {'fmin' : 0.08e9,
          'fmax' : 0.3e9,
          'nmor' : 200,
@@ -56,7 +56,7 @@ f_data= {'fmin' : 0.08e9,
          }
 
 frac_Greedy=8
-frac_Sparse=1024
+frac_Sparse=8
 accuracy=1e-3
 NChecks=3
 doFiltering=True
@@ -73,7 +73,7 @@ felis_todos=dict()
 felis_todos['init'] =False
 felis_todos['mats'] =False
 felis_todos['exci'] =False
-felis_todos['test'] =False
+felis_todos['test'] =True
 felis_todos['train']=False
 
 #########MODEL CONFIG
