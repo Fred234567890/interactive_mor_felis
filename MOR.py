@@ -156,7 +156,7 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
 
 
 def impedance(u,j):
-    return -np.dot(u,j.conj())
+    return -np.vdot(u,j)
 
 
 def nested_QR(U,R,a):
@@ -172,9 +172,14 @@ class Pod_adaptive:
         self.fIndsEval=list(range(len(fAxis)))
         self.ports=ports
         self.Mats=Mats
+        self.MatsR = []
         self.factors=factors
+
         self.RHS=RHS
-        self.RHS_dense=RHS[np.unique(np.sort(RHS.indices)),:].toarray()
+        self.rhs_inds=np.unique(np.sort(RHS.indices))
+        self.RHS_dense=RHS[self.rhs_inds,:].toarray()
+        self.rhs_map=([],[]) #first list: indices where to search in RHS_dense, second list: indices where to map to for residual estimation
+
         self.fIndsTest=fIndsTest
         self.SolsTest=SolsTest
         self.JSrc=JSrc
@@ -189,6 +194,11 @@ class Pod_adaptive:
         self.solInds=[]
         self.parallel=False
         self.times={
+            'total'       :np.zeros((nMax,len(fAxis))),
+
+            'preparations1': np.zeros((nMax, len(fAxis))),
+            'preparations2': np.zeros((nMax, len(fAxis))),
+            'preparations3': np.zeros((nMax, len(fAxis))),
             'mat_assemble' :np.zeros((nMax,len(fAxis))),
             'port_assemble':np.zeros((nMax,len(fAxis))),
             'project_RHS'  :np.zeros((nMax,len(fAxis))),
@@ -201,55 +211,76 @@ class Pod_adaptive:
             # 'solve_LGS_bicg':np.zeros((nMax,len(fAxis))),
             'solve_LGS_QR' :np.zeros((nMax,len(fAxis))),
             'solve_proj'   :np.zeros((nMax,len(fAxis))),
-            'err'          :np.zeros((nMax,len(fAxis))),
             'res_port'     :np.zeros((nMax,len(fAxis))),
             'res_mats'     :np.zeros((nMax,len(fAxis))),
+            'res_norm'     :np.zeros((nMax,len(fAxis))),
+            'Z'     :np.zeros((nMax,len(fAxis))),
+            'err'          :np.zeros((nMax,len(fAxis))),
+            'misc'         :np.zeros((nMax,len(fAxis))),
         }
         self.resTMP=np.zeros(np.shape(Mats[0])[0]).astype('complex')
         self.uROM=None
 
 
     def update(self,newSol):
+
+        startTotal=timeit.default_timer()
+        start = timeit.default_timer()
         if self.sols==[]:
             self.sols=newSol
             self.uROM=newSol[:,0]*0
         else:
             self.sols=np.append(self.sols, newSol, axis=1)
         self.nBasis=np.shape(self.sols)[1]
+        self.add_time('misc', start,0)
 
+        start = timeit.default_timer()
         self.U,self.R=nested_QR(self.U,self.R,newSol)
-
         Uh=self.U.conj().T
-
-
         Uh_rhs=Uh[:,np.unique(np.sort(self.RHS.indices))]
-
         self.Ushort=self.U[self.inds_u_proj,:]
-        self.uROMshort=np.zeros(len(self.inds_u_proj)).astype('complex')
+        self.uShort=np.zeros(len(self.inds_u_proj)).astype('complex')
+        self.add_time('preparations1', start,0)
 
-        MatsR = []
-        for i in range(len(self.Mats)):
-            MatsR.append(Uh @ self.Mats[i] @ self.U)
 
+        start = timeit.default_timer()
+        MatsRtemp=[]
+        if self.nBasis==1:
+            for i in range(len(self.Mats)):
+                MatsRtemp.append(Uh @ self.Mats[i] @ self.U)
+        else:
+            for i in range(len(self.Mats)):
+                MatsRtemp.append(np.zeros((self.nBasis,self.nBasis)).astype('complex'))
+                MatsRtemp[i][:self.nBasis-1,:self.nBasis-1]=self.MatsR[i]
+                newRow=Uh[-1,:] @ self.Mats[i] @ self.U[:,:self.nBasis]
+                MatsRtemp[i][:,-1]=newRow.conj()
+                MatsRtemp[i][-1,:]=newRow
+                # MatsRtemp.append(Uh @ self.Mats[i] @ self.U)
+        self.MatsR=MatsRtemp
+        self.add_time('preparations2', start,0)
+
+        start = timeit.default_timer()
         for i in range(len(self.ports)):
             self.ports[i].setU(self.U)
             self.ports[i].create_reduced_modeMats()
-
+        self.add_time('preparations3', start,0)
         n_jobs = 1
         if n_jobs== 1:
             for fInd in range(len(self.fAxis)):
-                self.MOR_loop(MatsR, Uh, Uh_rhs, fInd)
+                self.MOR_loop(self.MatsR, Uh, Uh_rhs, fInd)
         else:
             raise Exception('parallel currently disabled')
             jl.Parallel(n_jobs=n_jobs, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
+        self.add_time('total', startTotal,0)
 
 
     def MOR_loop(self, MatsR, Uh, Uh_rhs, fInd):
+        start = timeit.default_timer()
         if not fInd in self.fIndsEval:
             return
         f = self.fAxis[fInd]
-
+        self.add_time('misc', start,fInd)
         start = timeit.default_timer()
         for i in range(len(self.ports)):
             if i == 0:
@@ -310,21 +341,31 @@ class Pod_adaptive:
         vMor = slina.solve_triangular(AR, AQ.conj().T @ rhs_red)
         self.add_time('solve_LGS_QR', start,fInd)
 
-
         start = timeit.default_timer()
-        self.uROMshort[:]=self.Ushort @ vMor
+        self.uROM[self.inds_u_proj]=self.Ushort @ vMor
+        # self.uROM[self.inds_u_proj] = (self.U[self.inds_u_proj,:] @ vMor)  # [:,0]
+        # self.uROM = (self.U @ vMor)  # [:,0]
         self.add_time('solve_proj', start,fInd)
 
 
-        if fInd in self.fIndsTest:
-            i = np.where(self.fIndsTest == fInd)[0][0]
-            self.err_R_F[i] = nlina.norm(self.uROMshort - self.SolsTest[self.inds_u_proj, i])
 
         self.residual_estimation(fInd)
 
-        # postprocess solution: impedance+sParams
-        self.Z[fInd] = impedance(self.uROMshort, self.getJSrc(fInd)[self.inds_u_proj])
+        if fInd in self.fIndsTest:
+            start = timeit.default_timer()
+            i = np.where(self.fIndsTest == fInd)[0][0]
+            self.err_R_F[i] = nlina.norm(self.uROM[self.inds_u_proj] - self.SolsTest[self.inds_u_proj, i],ord=2)/nlina.norm(self.SolsTest[self.inds_u_proj, i],ord=2)
+            # self.uErr=self.U @ vMor
+            # self.err_R_F[i] = nlina.norm(self.uErr - self.SolsTest[:, i],ord=2)/nlina.norm(self.SolsTest[:, i],ord=2)
+            self.add_time('err', start,fInd)
+
+        # postprocess solution: impedance
+        start = timeit.default_timer()
+        self.Z[fInd] = impedance(self.uROM[self.rhs_inds], self.JSrc[self.rhs_inds, fInd].data)
+        self.add_time('Z', start,fInd)
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
+
+
 
     def sParam(self,u,f):
         for i in range(len(self.ports)):
@@ -341,6 +382,14 @@ class Pod_adaptive:
         for i in range(len(self.Mats)):
             self.Mats_res[i]=self.Mats_res[i][:,self.inds_u_res]
 
+        self.rhs_map=(-np.ones(len(residual_indices),dtype=int),-np.ones(len(residual_indices),dtype=int))
+        for i in range(len(residual_indices)):
+            if residual_indices[i] in self.rhs_inds:
+                self.rhs_map[0][i]=np.where(self.rhs_inds==residual_indices[i])[0][0]
+                self.rhs_map[1][i]=i
+        self.rhs_map=(np.unique(self.rhs_map[0])[1:],np.unique(self.rhs_map[1])[1:])
+        self.rhs_res=self.RHS_dense[self.rhs_map[0],:]
+        self.rhs_short = np.zeros(len(residual_indices)).astype('complex')
     def set_projection_indices(self):
         """
         Set the indices of the projection matrix that are used to project the reduced basis onto the solution. These
@@ -357,8 +406,8 @@ class Pod_adaptive:
         self.inds_u_proj=np.sort(np.unique(np.concatenate((inds_u_res,inds_beam,inds_port))))
 
     def residual_estimation(self, fInd):
-        f = self.fAxis[fInd]
         start = timeit.default_timer()
+        f = self.fAxis[fInd]
         uROM_short = self.uROM[self.inds_u_res]
         for i in range(len(self.Mats)):
             if i == 0:
@@ -374,18 +423,27 @@ class Pod_adaptive:
             self.resTMP[self.ports[i].get3Dinds()] *=0
         self.add_time('res_port', start,fInd)
 
-        self.res_ROM[fInd] = nlina.norm(self.getRHS(fInd)[self.residual_indices] - RHSrom)/np.sqrt(len(self.residual_indices))
+        start = timeit.default_timer()
+        self.rhs_short[self.rhs_map[1]] = self.rhs_res[:, fInd]
+        self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/nlina.norm(self.rhs_short,ord=2)
+        self.add_time('res_norm', start, fInd)
 
     def add_time(self, timeName, start,fInd):
         self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
 
     def get_time_for_plot(self):
+        timeSum = np.zeros(np.shape(self.times['total'])[0])
         times = []
         names = []
         for i in range(len(self.times)):
             times.append([])
             names.append(list(self.times.keys())[i])
             times[-1]=np.sum(self.times[names[i]],axis=1)
+            if not names[i] == 'total':
+                timeSum += times[-1]
+        names.append('sum')
+        times.append(timeSum)
+
         inds = np.cumsum(np.ones(np.shape(times)[1]))
         return inds,times,names
 
@@ -451,11 +509,11 @@ class Pod_adaptive:
     def get_Z(self):
         return self.fAxis[self.fIndsEval],self.Z[self.fIndsEval]
 
-    def getRHS(self,fInd):
-        return self.RHS[:,fInd].toarray()[:,0]
-
-    def getJSrc(self,fInd):
-        return self.JSrc[:,fInd].toarray()[:,0]
+    # def getRHS(self,fInd):
+    #     return self.RHS[:,fInd].toarray()[:,0]
+    #
+    # def getJSrc(self,fInd):
+    #     return self.JSrc[:,fInd].toarray()[:,0]
     
     def get_fAxis(self):
         return self.fAxis

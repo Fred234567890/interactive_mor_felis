@@ -48,7 +48,7 @@ path['plots']   = path['workDir']+'_new_images\\'
 
 
 #######MOR CONFIG
-nMax = 10
+nMax = 20
 f_data= {'fmin' : 0.08e9,
          'fmax' : 0.3e9,
          'nmor' : 200,
@@ -61,12 +61,13 @@ accuracy=1e-3
 NChecks=3
 doFiltering=True
 
-plotZs=['a'] #a,r,i
+plotZs=[''] #a,r,i
 
 exportZ=False
 dbName='SH12sibc_Mor_1'
 orderHex=0
 orderTet=0
+runId=
 
 
 felis_todos=dict()
@@ -172,7 +173,7 @@ for iBasis in range(nMax):
     err_Plot.append(errTot)
     res_curves.append(res_ROM)
 
-    misc.timeprint('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot/np.max(res_Plot)))
+    misc.timeprint('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot)) #/np.max(res_Plot)
 
     resDotsX.append(fAxis[solInds])
     resDotsY.append(res_ROM[solInds])
@@ -184,7 +185,7 @@ for iBasis in range(nMax):
     #convergence check
     if final: break
 
-    if resTot/np.max(res_Plot)<accuracy:
+    if resTot<accuracy:
         nChecks-=1
         print('Accuracy reached, nChecks reduced to '+str(nChecks))
     else:
@@ -207,7 +208,7 @@ ZRef=filterZ(ZRef, doFiltering)
 fig=plotfuns.initPlot(title='err,res',logX=True,logY=True,xName='f',yName='val')
 plotfuns.plotLine (fig, fAxis, err_R_F,lineArgs={'name':'err','color':0})
 plotfuns.plotLine (fig, fAxis, res_ROM,lineArgs={'name':'res','color':1})
-plotfuns.showPlot(fig,False)
+plotfuns.showPlot(fig,show=False)
 
 
 # raise Exception('stop')
@@ -234,6 +235,8 @@ for plotZ in plotZs:
         absReIm=lambda x: np.imag(x)
         logY=False
         title='im'
+    else:
+        continue
     plotconfig={'legendShow':True,'xSuffix':''}
     plotInds=[]
     fig=plotfuns.initPlot(title=title,logX=False,logY=logY,xName='f in Hz',yName='Z in Ohm')
@@ -261,8 +264,6 @@ plotfuns.showPlot(fig,show=True)
 
 ###############################################################################
 ##Data export
-
-runId=1
 
 if  exportZ:
     meshId=0
