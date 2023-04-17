@@ -451,6 +451,8 @@ class Pod_adaptive:
 
     def fAxisGreedy(self,density):
         self.fIndsEval=np.round(np.linspace(0,len(self.fAxis)-1,int(len(self.fAxis)*density))).astype(int)
+        self.fIndsEval=np.sort(np.unique(np.append(self.fIndsEval,self.fIndsTest)))
+
 
     def fAxisGreedy_treeRefine(self, refine_ind):
         ind_fIndsEval = np.where(self.fIndsEval == refine_ind)[0][0]
@@ -468,16 +470,17 @@ class Pod_adaptive:
                 misc.timeprint('no refinement possible for lower frequency')
 
     def select_new_freq_greedy(self):
+        fInds_exclusive_test=np.setdiff1d(self.fIndsEval,self.fIndsTest)
         if len(self.solInds) == 0:
-            a=int(len(self.fIndsEval) / 2)
-            newSolInd=self.fIndsEval[a]
+            a=int(len(fInds_exclusive_test) / 2)
+            newSolInd=fInds_exclusive_test[a]
             self.solInds.append(newSolInd)
         else:
             facts= np.array([0 if i in self.solInds else 1 for i in range(len(self.fAxis))])
             if np.sum(facts)==0:
                 raise Exception('no more frequencies available')
-            res = (self.res_ROM*facts)[self.fIndsEval]
-            newSolInd= self.fIndsEval[np.argmax(res)]
+            res = (self.res_ROM*facts)[fInds_exclusive_test]
+            newSolInd= fInds_exclusive_test[np.argmax(res)]
             self.solInds.append(newSolInd)
             self.fAxisGreedy_treeRefine(newSolInd)
         return self.fAxis[newSolInd]
@@ -502,8 +505,8 @@ class Pod_adaptive:
 
 
     def get_conv(self):
-        resTot=np.linalg.norm(self.res_ROM[self.fIndsEval])
-        errTot=np.linalg.norm(self.err_R_F)
+        resTot=np.linalg.norm(self.res_ROM[self.fIndsEval])/np.sqrt(len(self.fIndsEval))
+        errTot=np.linalg.norm(self.err_R_F)/np.sqrt(len(self.fIndsTest))
         return resTot,errTot,self.res_ROM[self.fIndsEval],self.err_R_F
 
     def get_Z(self):

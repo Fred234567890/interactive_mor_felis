@@ -48,34 +48,34 @@ path['plots']   = path['workDir']+'_new_images\\'
 
 
 #######MOR CONFIG
-nMax = 20
+nMax = 30
 f_data= {'fmin' : 0.08e9,
          'fmax' : 0.3e9,
          'nmor' : 200,
-         'ntest': 5,          # 1577.186820
+         'ntest': 10,          # 1577.186820
          }
 
-frac_Greedy=8
-frac_Sparse=1024
-accuracy=1e-3
+frac_Greedy=4
+frac_Sparse=4
+accuracy=1e-6
 NChecks=3
 doFiltering=True
 
-plotZs=[''] #a,r,i
+plotZs=['a'] #a,r,i
 
 exportZ=False
 dbName='SH12sibc_Mor_1'
 orderHex=0
 orderTet=0
-runId=
+runId=0
 
 
 felis_todos=dict()
-felis_todos['init'] =False
-felis_todos['mats'] =False
-felis_todos['exci'] =False
-felis_todos['test'] =False
-felis_todos['train']=False
+felis_todos['init'] =True
+felis_todos['mats'] =True
+felis_todos['exci'] =True
+felis_todos['test'] =True
+felis_todos['train']=True
 
 #########MODEL CONFIG
 symmetry=2
@@ -87,7 +87,7 @@ nModes={'TB':0,
         'TM':1,}
 
 cond=1.4e6 #5.8e5
-cond=0 #5.8e5
+# cond=0 #5.8e5
 
 # launch_felis =True
 ###############################################################################
@@ -173,7 +173,7 @@ for iBasis in range(nMax):
     err_Plot.append(errTot)
     res_curves.append(res_ROM)
 
-    misc.timeprint('nBasis=%d remaining relative residual: %f' %(iBasis+1,resTot)) #/np.max(res_Plot)
+    misc.timeprint('nBasis=%d remaining relative residual: %f, err: %f' %(iBasis+1,resTot,errTot)) #/np.max(res_Plot)
 
     resDotsX.append(fAxis[solInds])
     resDotsY.append(res_ROM[solInds])
@@ -227,22 +227,22 @@ for plotZ in plotZs:
         absReIm=lambda x: np.abs(x)
         logY=True
         title='abs'
-    if plotZ=='r':
+    elif plotZ=='r':
         absReIm=lambda x: np.real(x)
         logY=False
         title='re'
-    if plotZ=='i':
+    elif plotZ=='i':
         absReIm=lambda x: np.imag(x)
         logY=False
         title='im'
     else:
         continue
     plotconfig={'legendShow':True,'xSuffix':''}
-    plotInds=[]
+    plotInds=range(len(Z)-1)
     fig=plotfuns.initPlot(title=title,logX=False,logY=logY,xName='f in Hz',yName='Z in Ohm')
     for i in range(len(plotInds)):
         plotfuns.plotLine (fig, fAxes[plotInds[i]-1], absReIm(Z[plotInds[i]-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
-    plotfuns.plotLine (fig, fAxes[-1], absReIm(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':0} )
+    plotfuns.plotLine (fig, fAxes[-1], absReIm(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':4} )
     # plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
     plotfuns.plotCloud (fig, fAxisTest, absReIm(ZRef)/symmetry**2 ,cloudArgs={'name':'FEL','color':'red','size':3} )
     # plotfuns.plotLine (fig, fAxisTest, ref,lineArgs={'name':'FEL','color':4,'dash':'dash'} )
