@@ -202,13 +202,6 @@ class Pod_adaptive:
             'mat_assemble' :np.zeros((nMax,len(fAxis))),
             'port_assemble':np.zeros((nMax,len(fAxis))),
             'project_RHS'  :np.zeros((nMax,len(fAxis))),
-            # 'project_RHS_2_1'  :np.zeros((nMax,len(fAxis))),
-            # 'project_RHS_2_2'  :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS'    :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_np' :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_sci':np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_cg' :np.zeros((nMax,len(fAxis))),
-            # 'solve_LGS_bicg':np.zeros((nMax,len(fAxis))),
             'solve_LGS_QR' :np.zeros((nMax,len(fAxis))),
             'solve_proj'   :np.zeros((nMax,len(fAxis))),
             'res_port'     :np.zeros((nMax,len(fAxis))),
@@ -221,6 +214,8 @@ class Pod_adaptive:
         self.resTMP=np.zeros(np.shape(Mats[0])[0]).astype('complex')
         self.uROM=None
 
+    def correct_sibc(self,sibcInd):
+        self.Mats[sibcInd]=np.real(self.Mats[sibcInd]*np.real(self.factors[sibcInd](self.fAxis[0]))**-1).astype('complex')
 
     def update(self,newSol):
 

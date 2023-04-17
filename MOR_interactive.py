@@ -71,10 +71,10 @@ runId=0
 
 
 felis_todos=dict()
-felis_todos['init'] =True
-felis_todos['mats'] =True
-felis_todos['exci'] =True
-felis_todos['test'] =True
+felis_todos['init'] =False
+felis_todos['mats'] =False
+felis_todos['exci'] =False
+felis_todos['test'] =False
 felis_todos['train']=True
 
 #########MODEL CONFIG
@@ -114,7 +114,7 @@ factors=[
     lambda f:1,
     lambda f:-kap(f)**2,
     lambda f:1j*w(f)*mu,
-    lambda f:factorSibc(f)/factorSibc(fAxis[0])
+    lambda f:factorSibc(f)#/factorSibc(fAxis[0])
         ]
 
 
@@ -135,6 +135,7 @@ fAxes=[]
 
 timeStart=timeit.default_timer()
 pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,nMax)
+pod.correct_sibc(3)
 pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int))
 pod.set_projection_indices()
 pod.fAxisGreedy(1/frac_Greedy)
