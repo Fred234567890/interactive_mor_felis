@@ -50,16 +50,16 @@ path['plots']   = path['workDir']+'_new_images\\'
 #######MOR CONFIG
 nMax = 30
 f_data= {'fmin' : 0.08e9,
-         'fmax' : 0.3e9,
-         'nmor' : 200,
+         'fmax' : 0.2e9,
+         'nmor' : 100,
          'ntest': 10,          # 1577.186820
          }
 
-frac_Greedy=4
-frac_Sparse=4
+frac_Greedy=8
+frac_Sparse=16
 accuracy=1e-6
 NChecks=3
-doFiltering=True
+doFiltering=False
 
 plotZs=['a'] #a,r,i
 
@@ -75,7 +75,7 @@ felis_todos['init'] =False
 felis_todos['mats'] =False
 felis_todos['exci'] =False
 felis_todos['test'] =False
-felis_todos['train']=True
+felis_todos['train']=False
 
 #########MODEL CONFIG
 symmetry=2
@@ -86,8 +86,9 @@ nModes={'TB':0,
         'TE':0,
         'TM':1,}
 
-cond=1.4e6 #5.8e5
-# cond=0 #5.8e5
+cond=1.4e6 #sh12
+# cond=5.8e+3 #cubewire
+cond=0 #5.8e5
 
 # launch_felis =True
 ###############################################################################
@@ -95,7 +96,7 @@ cond=1.4e6 #5.8e5
 # if launch_felis:
 #     subprocess.call("H:\\FELIS_junction\\"+"felis "+modelName, shell=False)
 
-(CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)=\
+(CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,Z_felis,socket)=\
     MOR.createMatrices(felis_todos,pRead,path,cond,f_data['fmin'],f_data['fmax'],f_data['nmor'],f_data['ntest'],nPorts,nModes)
 f_data['nmor']=len(fAxis)
 
@@ -134,8 +135,9 @@ Z=[]
 fAxes=[]
 
 timeStart=timeit.default_timer()
-pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,sols_test,nMax)
-pod.correct_sibc(3)
+pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,symmetry,fIndsTest,sols_test,nMax)
+if cond>0:
+    pod.correct_sibc(3)
 pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int))
 pod.set_projection_indices()
 pod.fAxisGreedy(1/frac_Greedy)
@@ -143,19 +145,17 @@ for iBasis in range(nMax):
     ###############################################################################
 
     #add new solutions:
-
     if os.path.isfile(path['sols'] +'train_'+str(iBasis)+'.pmat'):
         fnew=misc.csv_readLine(path['sols'] +'freqs',iBasis)[0]
         pod.register_new_freq(fnew)
-        newSol = pRead(path['sols'] + 'train_' + str(iBasis))
     else:
         fnew=pod.select_new_freq_greedy()
         socket.send_string("solve: train_%d  %f" %(iBasis,fnew))
         message = socket.recv()
         misc.timeprint(message)
         misc.csv_writeLine(path['sols'] +'freqs',fnew,iBasis)
+    newSol = pRead(path['sols'] +'train_'+str(iBasis))
 
-        newSol = pRead(path['sols'] +'train_'+str(iBasis))
 
 
     if final:
@@ -201,7 +201,7 @@ print('MOR took %f seconds' %timeMor)
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
-    Znew=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0])
+    Znew=MOR.impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0],symmetry)
     ZRef[i]=Znew
 ZRef=filterZ(ZRef, doFiltering)
 ##############################################################################
@@ -210,8 +210,6 @@ fig=plotfuns.initPlot(title='err,res',logX=True,logY=True,xName='f',yName='val')
 plotfuns.plotLine (fig, fAxis, err_R_F,lineArgs={'name':'err','color':0})
 plotfuns.plotLine (fig, fAxis, res_ROM,lineArgs={'name':'res','color':1})
 plotfuns.showPlot(fig,show=False)
-
-
 # raise Exception('stop')
 
 plotconfig={'legendShow':True}
@@ -239,13 +237,14 @@ for plotZ in plotZs:
     else:
         continue
     plotconfig={'legendShow':True,'xSuffix':''}
-    plotInds=range(len(Z)-1)
+    plotInds=[]
     fig=plotfuns.initPlot(title=title,logX=False,logY=logY,xName='f in Hz',yName='Z in Ohm')
     for i in range(len(plotInds)):
-        plotfuns.plotLine (fig, fAxes[plotInds[i]-1], absReIm(Z[plotInds[i]-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
-    plotfuns.plotLine (fig, fAxes[-1], absReIm(Z[-1])/symmetry**2  ,lineArgs={'name':'MOR_%d' %len(Z),'color':4} )
+        plotfuns.plotLine (fig, fAxes[plotInds[i]-1], absReIm(Z[plotInds[i]-1]),lineArgs={'name':'MOR_%d' %plotInds[i],'color':i+1} )
+    plotfuns.plotLine (fig, fAxes[-1], absReIm(Z[-1])   ,lineArgs={'name':'MOR_%d' %len(Z),'color':1} )
     # plotfuns.plotLine (fig, fAxisTest, np.abs(ZRef)/symmetry**2 ,lineArgs={'name':'FEL','color':3,'dash':'dash'} )
-    plotfuns.plotCloud (fig, fAxisTest, absReIm(ZRef)/symmetry**2 ,cloudArgs={'name':'FEL','color':'red','size':3} )
+    plotfuns.plotCloud (fig, fAxisTest, absReIm(ZRef)   ,cloudArgs={'name':'REF','color':'red','size':12} )
+    plotfuns.plotCloud (fig, fAxisTest, absReIm(Z_felis),cloudArgs={'name':'FEL','color':'green','size':6} )
     # plotfuns.plotLine (fig, fAxisTest, ref,lineArgs={'name':'FEL','color':4,'dash':'dash'} )
     plotfuns.showPlot(fig,show=True)
     # plotfuns.exportPlot(fig, 'SH12_imp_Ord2_sibc_1', 'full', path=path['plots'],opts=plotconfig|{ 'legendPos':'topRight', 'xTick': 0.1e9, 'yTick': 1,'yRange':[0.2,2000]})
@@ -288,6 +287,18 @@ else:
 
 
 
+# def impedance(u,j,sym):
+#     return -np.vdot(j,u)/sym
+#     # return -np.dot(u,j.conj())/symmetry
+#
+# ZRef=np.zeros(len(fAxisTest)).astype('complex')
+# for i in range(len(fAxisTest)):
+#     Znew=impedance(sols_test[:,i], JSrc[:,fIndsTest[i]].toarray()[:,0],symmetry)
+#     ZRef[i]=Znew
+#
+# # ZRef/Z_felis
+# np.real(ZRef)/np.real(Z_felis)
+# # np.imag(ZRef)/np.imag(Z_felis)
 
 
 

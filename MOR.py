@@ -139,6 +139,7 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         subprocess.call("del /q /s " + path['sols'] + "\\test*", shell=True)
 
     runtimeTest=0
+    Z_felis=np.zeros(nTest,dtype=complex)
     for i in range(nTest):
         if felis_todos['test']:
             timeStart = timeit.default_timer()
@@ -150,13 +151,15 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
             sols_test = pRead(path['sols'] + 'test_0')
         else:
             sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
+        Z_data=ut.csvRead(path['sols'] + 'test_%d' % i + '.csv',delimiter=',')[0,1:]
+        Z_felis[i]=(Z_data[0]+1j*Z_data[1])
     misc.timeprint('runtime Felis for test data: %f' %runtimeTest)
-    return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,socket)
+    return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,Z_felis,socket)
 
 
 
-def impedance(u,j):
-    return -np.vdot(u,j)
+def impedance(u,j,symmetry):
+    return -np.vdot(j,u)/symmetry
 
 
 def nested_QR(U,R,a):
@@ -167,13 +170,14 @@ def nested_QR(U,R,a):
     return (U,R)
 
 class Pod_adaptive:
-    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,fIndsTest,SolsTest,nMax):
+    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,symmetry,fIndsTest,SolsTest,nMax):
         self.fAxis=fAxis
         self.fIndsEval=list(range(len(fAxis)))
         self.ports=ports
         self.Mats=Mats
         self.MatsR = []
         self.factors=factors
+        self.symmetry=symmetry
 
         self.RHS=RHS
         self.rhs_inds=np.unique(np.sort(RHS.indices))
@@ -356,7 +360,7 @@ class Pod_adaptive:
 
         # postprocess solution: impedance
         start = timeit.default_timer()
-        self.Z[fInd] = impedance(self.uROM[self.rhs_inds], self.JSrc[self.rhs_inds, fInd].data)
+        self.Z[fInd] = impedance(self.uROM[self.rhs_inds], self.JSrc[self.rhs_inds, fInd].data,self.symmetry)
         self.add_time('Z', start,fInd)
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
 
