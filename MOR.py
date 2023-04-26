@@ -163,7 +163,7 @@ def impedance(u,j,symmetry):
 
 
 def nested_QR(U,R,a):
-    if U==[]:
+    if np.shape(U)[1]==0:
         U,R=slina.qr(a,mode='economic')
     else:
         U,R=slina.qr_insert(U,R,a,np.shape(U)[1],which='col')
@@ -187,8 +187,7 @@ class Pod_adaptive:
         self.fIndsTest=fIndsTest
         self.SolsTest=SolsTest
         self.JSrc=JSrc
-        self.sols=[]
-        self.U=[]
+        self.U=np.array([[]])
         self.R=[]
         # self.rhs_reds=np.zeros((nMax,len(fAxis))).astype('complex')
         self.res_ROM=np.zeros(len(fAxis))
@@ -197,6 +196,7 @@ class Pod_adaptive:
         self.nMOR=len(fAxis)
         self.solInds=[]
         self.parallel=False
+        self.timing=True
         self.times={
             'total'       :np.zeros((nMax,len(fAxis))),
 
@@ -211,7 +211,7 @@ class Pod_adaptive:
             'res_port'     :np.zeros((nMax,len(fAxis))),
             'res_mats'     :np.zeros((nMax,len(fAxis))),
             'res_norm'     :np.zeros((nMax,len(fAxis))),
-            'Z'     :np.zeros((nMax,len(fAxis))),
+            'Z'             :np.zeros((nMax,len(fAxis))),
             'err'          :np.zeros((nMax,len(fAxis))),
             'misc'         :np.zeros((nMax,len(fAxis))),
         }
@@ -225,12 +225,9 @@ class Pod_adaptive:
 
         startTotal=timeit.default_timer()
         start = timeit.default_timer()
-        if self.sols==[]:
-            self.sols=newSol
+        if np.shape(self.U)[1]==0:
             self.uROM=newSol[:,0]*0
-        else:
-            self.sols=np.append(self.sols, newSol, axis=1)
-        self.nBasis=np.shape(self.sols)[1]
+        self.nBasis=np.shape(self.U)[1]+1
         self.add_time('misc', start,0)
 
         start = timeit.default_timer()
@@ -243,19 +240,19 @@ class Pod_adaptive:
 
 
         start = timeit.default_timer()
-        MatsRtemp=[]
         if self.nBasis==1:
+            #MatsRtemp = []
             for i in range(len(self.Mats)):
-                MatsRtemp.append(Uh @ self.Mats[i] @ self.U)
+                self.MatsR.append(Uh @ self.Mats[i] @ self.U)
         else:
             for i in range(len(self.Mats)):
-                MatsRtemp.append(np.zeros((self.nBasis,self.nBasis)).astype('complex'))
-                MatsRtemp[i][:self.nBasis-1,:self.nBasis-1]=self.MatsR[i]
+                matTemp=np.zeros((self.nBasis,self.nBasis),dtype='complex')
+                matTemp[:self.nBasis-1,:self.nBasis-1]=self.MatsR[i]
+                self.MatsR[i]=matTemp
                 newRow=Uh[-1,:] @ self.Mats[i] @ self.U[:,:self.nBasis]
-                MatsRtemp[i][:,-1]=newRow.conj()
-                MatsRtemp[i][-1,:]=newRow
+                self.MatsR[i][:,-1]=newRow.conj()
+                self.MatsR[i][-1,:]=newRow
                 # MatsRtemp.append(Uh @ self.Mats[i] @ self.U)
-        self.MatsR=MatsRtemp
         self.add_time('preparations2', start,0)
 
         start = timeit.default_timer()
@@ -428,7 +425,8 @@ class Pod_adaptive:
         self.add_time('res_norm', start, fInd)
 
     def add_time(self, timeName, start,fInd):
-        self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
+        if self.timing:
+            self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
 
     def get_time_for_plot(self):
         timeSum = np.zeros(np.shape(self.times['total'])[0])
@@ -502,6 +500,9 @@ class Pod_adaptive:
     def all_freqs(self):
         self.fIndsEval=np.array(range(len(self.fAxis)))
 
+    def deactivate_timing(self):
+        self.timing=False
+        self.times={}
 
     def get_conv(self):
         resTot=np.linalg.norm(self.res_ROM[self.fIndsEval])/np.sqrt(len(self.fIndsEval))

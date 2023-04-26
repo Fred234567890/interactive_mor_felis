@@ -52,7 +52,7 @@ nMax = 30
 f_data= {'fmin' : 0.08e9,
          'fmax' : 0.2e9,
          'nmor' : 100,
-         'ntest': 10,          # 1577.186820
+         'ntest': 3,          # 1577.186820
          }
 
 frac_Greedy=8
@@ -60,6 +60,7 @@ frac_Sparse=16
 accuracy=1e-6
 NChecks=3
 doFiltering=False
+saveMemory=True
 
 plotZs=['a'] #a,r,i
 
@@ -75,7 +76,7 @@ felis_todos['init'] =False
 felis_todos['mats'] =False
 felis_todos['exci'] =False
 felis_todos['test'] =False
-felis_todos['train']=False
+felis_todos['train']=True
 
 #########MODEL CONFIG
 symmetry=2
@@ -88,7 +89,7 @@ nModes={'TB':0,
 
 cond=1.4e6 #sh12
 # cond=5.8e+3 #cubewire
-cond=0 #5.8e5
+# cond=0 #5.8e5
 
 # launch_felis =True
 ###############################################################################
@@ -136,8 +137,11 @@ fAxes=[]
 
 timeStart=timeit.default_timer()
 pod=MOR.Pod_adaptive(fAxis,ports,Mats,factors,RHS,JSrc,symmetry,fIndsTest,sols_test,nMax)
+
 if cond>0:
     pod.correct_sibc(3)
+if saveMemory:
+    pod.deactivate_timing()
 pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int))
 pod.set_projection_indices()
 pod.fAxisGreedy(1/frac_Greedy)
@@ -172,15 +176,19 @@ for iBasis in range(nMax):
 
     res_Plot.append(resTot)
     err_Plot.append(errTot)
-    res_curves.append(res_ROM)
 
     misc.timeprint('nBasis=%d remaining relative residual: %f, err: %f' %(iBasis+1,resTot,errTot)) #/np.max(res_Plot)
 
-    resDotsX.append(fAxis[solInds])
-    resDotsY.append(res_ROM[solInds])
-    Znew=filterZ(Znew,doFiltering)
-    Z.append(Znew)
-    fAxes.append(fAxis_new)
+    if not saveMemory:
+        res_curves.append(res_ROM)
+        resDotsX.append(fAxis[solInds])
+        resDotsY.append(res_ROM[solInds])
+        Z.append(Znew)
+        fAxes.append(fAxis_new)
+    else:
+        Z=[Znew]
+        fAxes=[fAxis_new]
+
     nBasiss.append(iBasis+1)
 
     #convergence check
@@ -192,12 +200,14 @@ for iBasis in range(nMax):
     else:
         nChecks=NChecks
 
-    if nChecks==0:
+    if nChecks==0 or iBasis==nMax-2:
         final=True
         misc.timeprint('last iteration')
 timeMor=timeit.default_timer()-timeStart
 print('MOR took %f seconds' %timeMor)
 
+if doFiltering:
+    Z=filterZ(Z, doFiltering)
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
@@ -250,11 +260,12 @@ for plotZ in plotZs:
     # plotfuns.exportPlot(fig, 'SH12_imp_Ord2_sibc_1', 'full', path=path['plots'],opts=plotconfig|{ 'legendPos':'topRight', 'xTick': 0.1e9, 'yTick': 1,'yRange':[0.2,2000]})
 
 
-inds,times,names =pod.get_time_for_plot()
-fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
-plotfuns.plotLines (fig, inds, times,curveName=names)
-plotfuns.showPlot(fig,show=True)
-# # plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
+if not saveMemory:
+    inds,times,names =pod.get_time_for_plot()
+    fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
+    plotfuns.plotLines (fig, inds, times,curveName=names)
+    plotfuns.showPlot(fig,show=True)
+    # # plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
 
 # #, 'xTick': 0.2, 'yTick': 1}
 
