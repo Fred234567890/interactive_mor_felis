@@ -107,6 +107,7 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
     ###import/create constant matrices
     CC = pRead(path['mats'] + 'CC')
     MC = pRead(path['mats'] + 'MC')
+    # MC=0
     ME = pRead(path['mats'] + 'ME')
     if cond > 0:
         Sibc = pRead(path['mats'] + 'Sibc')
@@ -198,22 +199,22 @@ class Pod_adaptive:
         self.parallel=False
         self.timing=True
         self.times={
-            'total'       :np.zeros((nMax,len(fAxis))),
-
-            'preparations1': np.zeros((nMax, len(fAxis))),
-            'preparations2': np.zeros((nMax, len(fAxis))),
-            'preparations3': np.zeros((nMax, len(fAxis))),
-            'mat_assemble' :np.zeros((nMax,len(fAxis))),
-            'port_assemble':np.zeros((nMax,len(fAxis))),
-            'project_RHS'  :np.zeros((nMax,len(fAxis))),
-            'solve_LGS_QR' :np.zeros((nMax,len(fAxis))),
-            'solve_proj'   :np.zeros((nMax,len(fAxis))),
-            'res_port'     :np.zeros((nMax,len(fAxis))),
-            'res_mats'     :np.zeros((nMax,len(fAxis))),
-            'res_norm'     :np.zeros((nMax,len(fAxis))),
+            'MOR'         :np.zeros((nMax,len(fAxis))),
+            'FEM'           :np.zeros((nMax,len(fAxis))),
+            'preparations1' :np.zeros((nMax,len(fAxis))),
+            'preparations2' :np.zeros((nMax,len(fAxis))),
+            'preparations3' :np.zeros((nMax,len(fAxis))),
+            'mat_assemble'  :np.zeros((nMax,len(fAxis))),
+            'port_assemble' :np.zeros((nMax,len(fAxis))),
+            'project_RHS'   :np.zeros((nMax,len(fAxis))),
+            'solve_LGS_QR'  :np.zeros((nMax,len(fAxis))),
+            'solve_proj'    :np.zeros((nMax,len(fAxis))),
+            'res_port'      :np.zeros((nMax,len(fAxis))),
+            'res_mats'      :np.zeros((nMax,len(fAxis))),
+            'res_norm'      :np.zeros((nMax,len(fAxis))),
             'Z'             :np.zeros((nMax,len(fAxis))),
-            'err'          :np.zeros((nMax,len(fAxis))),
-            'misc'         :np.zeros((nMax,len(fAxis))),
+            'err'           :np.zeros((nMax,len(fAxis))),
+            'misc'          :np.zeros((nMax,len(fAxis))),
         }
         self.resTMP=np.zeros(np.shape(Mats[0])[0]).astype('complex')
         self.uROM=None
@@ -223,7 +224,6 @@ class Pod_adaptive:
 
     def update(self,newSol):
 
-        startTotal=timeit.default_timer()
         start = timeit.default_timer()
         if np.shape(self.U)[1]==0:
             self.uROM=newSol[:,0]*0
@@ -268,7 +268,6 @@ class Pod_adaptive:
             raise Exception('parallel currently disabled')
             jl.Parallel(n_jobs=n_jobs, prefer="threads")(jl.delayed(self.MOR_loop)(MatsR, Uh, fInd) for fInd in range(len(self.fAxis)))
         self.resTot = nlina.norm(self.res_ROM)
-        self.add_time('total', startTotal,0)
 
 
     def MOR_loop(self, MatsR, Uh, Uh_rhs, fInd):
@@ -368,7 +367,8 @@ class Pod_adaptive:
             S=self.ports[i].getSParams(u,f)
 
 
-    def set_residual_indices(self,residual_indices):
+    def set_residual_indices(self,residual_indices,frac_Sparse):
+        print('number DoFs considered for res: %d' %(len(residual_indices)))
         self.residual_indices=residual_indices
         self.Mats_res=[]
         for i in range(len(self.Mats)):
@@ -385,6 +385,7 @@ class Pod_adaptive:
                 self.rhs_map[1][i]=i
         self.rhs_map=(np.unique(self.rhs_map[0])[1:],np.unique(self.rhs_map[1])[1:])
         self.rhs_res=self.RHS_dense[self.rhs_map[0],:]
+        self.rhs_normed=(nlina.norm(self.RHS_dense,axis=0,ord=2)**2/frac_Sparse)**0.5
         self.rhs_short = np.zeros(len(residual_indices)).astype('complex')
     def set_projection_indices(self):
         """
@@ -418,25 +419,29 @@ class Pod_adaptive:
             RHSrom += self.resTMP[self.residual_indices]
             self.resTMP[self.ports[i].get3Dinds()] *=0
         self.add_time('res_port', start,fInd)
+        #
+        # start = timeit.default_timer()
+        # self.rhs_short[self.rhs_map[1]] = self.rhs_res[:, fInd]
+        # self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/nlina.norm(self.rhs_short,ord=2)
+        # self.add_time('res_norm1', start, fInd)
 
         start = timeit.default_timer()
         self.rhs_short[self.rhs_map[1]] = self.rhs_res[:, fInd]
-        self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/nlina.norm(self.rhs_short,ord=2)
+        self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/self.rhs_normed[fInd]
         self.add_time('res_norm', start, fInd)
-
     def add_time(self, timeName, start,fInd):
         if self.timing:
             self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
 
     def get_time_for_plot(self):
-        timeSum = np.zeros(np.shape(self.times['total'])[0])
+        timeSum = np.zeros(np.shape(self.times['MOR'])[0])
         times = []
         names = []
         for i in range(len(self.times)):
             times.append([])
             names.append(list(self.times.keys())[i])
             times[-1]=np.sum(self.times[names[i]],axis=1)
-            if not names[i] == 'total':
+            if not names[i] == 'MOR':
                 timeSum += times[-1]
         names.append('sum')
         times.append(timeSum)

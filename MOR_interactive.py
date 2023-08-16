@@ -48,27 +48,27 @@ path['plots']   = path['workDir']+'_new_images\\'
 
 
 #######MOR CONFIG
-nMax = 30
+nMax = 40
 f_data= {'fmin' : 0.08e9,
-         'fmax' : 0.2e9,
-         'nmor' : 100,
-         'ntest': 3,          # 1577.186820
+         'fmax' : 0.3e9,
+         'nmor' : 1000,
+         'ntest': 100,          # 1577.186820
          }
 
-frac_Greedy=8
-frac_Sparse=16
+frac_Greedy=1
+frac_Sparse=1
 accuracy=1e-6
 NChecks=3
-doFiltering=False
-saveMemory=True
+doFiltering=True
+saveMemory=False
 
 plotZs=['a'] #a,r,i
 
-exportZ=False
-dbName='SH12sibc_Mor_1'
+exportZ=True
+dbName='KWT_1'
 orderHex=0
 orderTet=0
-runId=0
+runId=6
 
 
 felis_todos=dict()
@@ -142,7 +142,7 @@ if cond>0:
     pod.correct_sibc(3)
 if saveMemory:
     pod.deactivate_timing()
-pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int))
+pod.set_residual_indices(np.linspace(0,np.shape(CC)[0]-1,int(np.shape(CC)[0]/frac_Sparse)).astype(int),frac_Sparse)
 pod.set_projection_indices()
 pod.fAxisGreedy(1/frac_Greedy)
 for iBasis in range(nMax):
@@ -150,13 +150,16 @@ for iBasis in range(nMax):
 
     #add new solutions:
     if os.path.isfile(path['sols'] +'train_'+str(iBasis)+'.pmat'):
+        timeFem=0
         fnew=misc.csv_readLine(path['sols'] +'freqs',iBasis)[0]
         pod.register_new_freq(fnew)
     else:
+        start = timeit.default_timer()
         fnew=pod.select_new_freq_greedy()
         socket.send_string("solve: train_%d  %f" %(iBasis,fnew))
         message = socket.recv()
         misc.timeprint(message)
+        timeFem=timeit.default_timer() - start
         misc.csv_writeLine(path['sols'] +'freqs',fnew,iBasis)
     newSol = pRead(path['sols'] +'train_'+str(iBasis))
 
@@ -167,12 +170,19 @@ for iBasis in range(nMax):
     ###############################################################################
     #update
     # pod.update_Classic(newSol)
+    startTotal = timeit.default_timer()
     pod.update(newSol)
+    pod.add_time('FEM', timeit.default_timer()-timeFem, 0)
+    pod.add_time('MOR', startTotal,0)
+
     # pod.print_time()
     ###############################################################################
     #post processing
     resTot,errTot,res_ROM,err_R_F=pod.get_conv()
     fAxis_new,Znew=pod.get_Z()
+
+    if doFiltering:
+        Znew=filterZ(Znew, doFiltering)
 
     res_Plot.append(resTot)
     err_Plot.append(errTot)
@@ -194,20 +204,19 @@ for iBasis in range(nMax):
     #convergence check
     if final: break
 
-    if resTot<accuracy:
+    if errTot<accuracy:
         nChecks-=1
         print('Accuracy reached, nChecks reduced to '+str(nChecks))
     else:
         nChecks=NChecks
 
     if nChecks==0 or iBasis==nMax-2:
+        break
         final=True
         misc.timeprint('last iteration')
 timeMor=timeit.default_timer()-timeStart
 print('MOR took %f seconds' %timeMor)
 
-if doFiltering:
-    Z=filterZ(Z, doFiltering)
 
 ZRef=np.zeros(len(fAxisTest)).astype('complex')
 for i in range(len(fAxisTest)):
@@ -262,8 +271,21 @@ for plotZ in plotZs:
 
 if not saveMemory:
     inds,times,names =pod.get_time_for_plot()
+    tD=dict(zip(names,times))
+    firstInd=np.where(tD['mat_assemble']==0)[0][0]
+    times=np.array(times)[:,:firstInd]
+    inds=inds[:firstInd]
+    namesPlt=['Total','FEM','MOR_total','MOR_solve','MOR_res.','Misc.']
+    timesPlt=[tD['sum'],
+              tD['FEM'],
+              -1,
+              tD['mat_assemble']+tD['port_assemble']+tD['preparations1']+tD['preparations2']+tD['preparations3']+tD['solve_LGS_QR']+tD['project_RHS'],
+              tD['solve_proj']+tD['res_port']+tD['res_mats']+tD['res_norm'],
+              tD['err']+tD['Z']+tD['misc']
+            ]
+    timesPlt[2]=timesPlt[3]+timesPlt[4]
     fig=plotfuns.initPlot(title='time per iteration',logX=False,logY=False,xName='iteration',yName='time in s')
-    plotfuns.plotLines (fig, inds, times,curveName=names)
+    plotfuns.plotLines (fig, inds, timesPlt,curveName=namesPlt)
     plotfuns.showPlot(fig,show=True)
     # # plotfuns.exportPlot(fig, 'acc_cav_time_NPvsQR', 'half', path=path['plots'],opts=plotconfig|{ 'legendPos':'topLeft', 'xTick': 5, 'yTick': 0.5,'yRange':[-0,1.8]})
 
@@ -292,6 +314,14 @@ if  exportZ:
             grp.create_dataset('ZIm'  , data=np.imag(Z[-1]))
             grp.create_dataset('ZAbs' , data=np.abs (Z[-1]))
             grp.create_dataset('acc'  , data=accuracy)
+            grp.create_dataset('frac_Sparse'  , data=frac_Sparse)
+            grp.create_dataset('frac_Greedy'  , data=frac_Greedy)
+            grp.create_dataset('time_times' , data=timesPlt)
+            grp.create_dataset('time_names' , data=namesPlt)
+            grp.create_dataset('time_inds' , data=inds)
+            grp.create_dataset('err' , data=err_Plot)
+            grp.create_dataset('res' , data=res_Plot)
+
 else:
     print('Z not exported!')
 
@@ -310,17 +340,6 @@ else:
 # # ZRef/Z_felis
 # np.real(ZRef)/np.real(Z_felis)
 # # np.imag(ZRef)/np.imag(Z_felis)
-
-
-
-
-
-
-
-
-
-
-
 
 
 

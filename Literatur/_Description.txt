@@ -1,7 +1,0 @@
-Rubia_2018_MOR:
- -Detailed overview over the field
-  +Comparison of intapolatory methods (moment matching) and RBM
-  +Discussion of error estimators p.2
-   +Discussion of EEs based on ellipticity constant
-
-  

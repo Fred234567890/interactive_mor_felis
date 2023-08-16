@@ -17,13 +17,13 @@ import numpy as np
 import numpy.linalg as nlina
 import scipy.linalg as slina
 import scipy.sparse.linalg as sslina
-import oct2py
+# import oct2py
 import os
 import joblib as jl
 import timeit
 
-oc = oct2py.Oct2Py()
-pRead=lambda path:ut.pRead(oc, path)
+# oc = oct2py.Oct2Py()
+# pRead=lambda path:ut.pRead(oc, path)
 
 
 path=dict();
@@ -77,8 +77,6 @@ import os
 # plotfuns.showPlot(fig)
 
 
-a=ut.petscRead('D:\\Ordnerordner\\FELIS\\tmp\\mats\\0\\0')
-b=ut.petscRead('D:\\Ordnerordner\\FELIS\\tmp\\mats\\0\\1')
 
 
 

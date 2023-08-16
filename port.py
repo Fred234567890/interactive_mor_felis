@@ -119,7 +119,7 @@ class Port:
             self.fields_reduced.append(np.outer(pu, pu.conj()))
 
     def getReducedModeMat(self,ind):
-        return self.fields_reduced[ind]
+        return self.fields_reduced[ind] #todo fields_reduces is a bad name.
 
 
 
