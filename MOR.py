@@ -5,20 +5,77 @@ Created on Mon Dec  5 12:16:01 2022
 @author: Fred
 """
 
+import glob
+import struct
 import subprocess
 import timeit
+from pathlib import Path
+import os
 
 import joblib as jl
 import numpy as np
 import numpy.linalg as nlina
 import scipy.linalg as slina
-import scipy
 import zmq
 from myLibs import utility as ut
 
 import misc
 import port
 
+
+class Beam:
+    def __init__(self,J,pos,driving):
+        self.J=J
+
+        if len(pos)!=2:
+            raise Exception('position needs to be tuple/list... of the x and y coordinate')
+        if not isinstance(pos[0], float) or not isinstance(pos[1], float):
+            raise Exception('x and y coordinates need to be floats')
+        self.pos=pos
+        self.driving=driving
+
+    def getDofInds(self):
+        return self.J[:,0].indices
+
+    def getJ(self):
+        return self.J
+
+    def getPosition(self):
+        return self.pos
+class Beams:
+    def __init__(self):
+        self.drivingBeam=-1
+        self.beams=[]
+
+    def addBeam(self,J,pos,driving):
+        self.beams.append(Beam(J,pos,driving))
+        if self.drivingBeam!=-1 and driving:
+            raise Exception("driving beam already defined")
+        if driving:
+            self.drivingBeam=len(self.beams)-1
+
+    def getN(self):
+        return len(self.beams)
+
+    def getDofInds(self, beamInd=None):
+        if beamInd==None:
+            inds=[]
+            for i in range(self.getN()):
+                inds.append(self.beams[i].getDofInds())
+            return np.unique(inds)
+        else:
+            return self.beams[beamInd].getDofInds()
+
+    def getJ(self,iBeam):
+        return self.beams[iBeam].getJ()
+
+    def getDrivingBeam(self):
+        if self.drivingBeam==-1:
+            raise Exception('no driving beam')
+        return self.drivingBeam
+
+    def getPosition(self, iBeam):
+        return self.beams[iBeam].getPosition()
 
 def getFelisConstants():
     eps  = 8.8541878e-12
@@ -27,13 +84,15 @@ def getFelisConstants():
     return (eps,mu,c0) #(eps,mu,c0)=MOR.getFelisConstants()
 
 def writeFAxis(fileName,values):
+    directory = Path(fileName).parent
+    directory.mkdir(parents=True, exist_ok=True)
     with open(fileName, 'w') as f:
         f.write(str(len(values))+'\n')
         for i in range(len(values)):
             f.write(str(values[i])+'\n')
 
 
-def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nModes):
+def createMatrices(felis_todos,pRead,path,fmin,fmax,nTrain,nTest,nPorts,nModes):
 
     #  create fAxis
     fAxis = np.linspace(fmin, fmax, nTrain)
@@ -90,11 +149,6 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         message = socket.recv()
         misc.timeprint(message)
 
-        if cond > 0:
-            socket.send_string("export_SIBc: %f" %fmin)
-            message = socket.recv()
-            misc.timeprint(message)
-
     if felis_todos['exci']:
         subprocess.call("del /q " + path['rhs'] + "\\*", shell=True)
         writeFAxis(path['rhs'] + 'fAxis.csv', fAxis)
@@ -105,22 +159,52 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
 
     ###############################################################################
     ###import/create constant matrices
-    CC = pRead(path['mats'] + 'CC')
-    MC = pRead(path['mats'] + 'MC')
-    # MC=0
-    ME = pRead(path['mats'] + 'ME')
-    if cond > 0:
-        Sibc = pRead(path['mats'] + 'Sibc')
-    else:
-        Sibc = ME * 0
+
+    # w = lambda freq: 2 * np.pi * freq
+    # kap = lambda freq: w(freq) / c0
+    # if useMC:
+    #     Mats = [CC, ME, MC, Sibc]
+    #     factors = [
+    #         lambda f: 1,
+    #         lambda f: -kap(f) ** 2,
+    #         lambda f: 1j * w(f) * mu,
+    #     ]
+
+    w = lambda freq: 2 * np.pi * freq
+    Mats = [pRead(path['mats'] + 'CC'),pRead(path['mats'] + 'ME')]
+    facs=[lambda f: 1,lambda f:  -(w(f)/getFelisConstants()[2])**2]
+
+    if(os.path.exists(path['mats'] + 'MC')):
+        Mats.append(pRead(path['mats'] + 'MC'))
+        facs.append(lambda f: 1j * w(f) * mu)
+
+    SibcMats=[];
+    #read conductivities and sibcE
+    conds=[]
+    if os.path.exists(path['mats'] + 'conductivities.csv'):
+        if os.path.getsize(path['mats'] + 'conductivities.csv')>0:
+            conds=ut.csvRead(path['mats'] + 'conductivities.csv',delimiter=',')[:,0]
+
+    for i in range(len(conds)):
+        Mats.append( pRead(path['mats'] + 'Sibc'+str(i)))
+        # facs.append(lambda f:-1j*2*np.pi*f*getFelisConstants()[1]/sqrt())
+        cond=conds[i]
+        fun=lambda f:-1/2*(1+1j)*np.sqrt(2*np.pi*f*getFelisConstants()[1]*cond)
+        facs.append(fun)
+    # if len(conds)==0:
+    #     Mats.append(ME * 0)
+    #     facs.append(lambda f:0)
+
+    #facs,Mats,sibcInd
+
 
     ports = []
     for i in range(nPorts):
         ports.append(port.Port(path['ports'] + str(i) + '\\', pRead, nModes,fAxis))
-        misc.timeprint('port read modes')
-        ports[i].readModes()
         misc.timeprint('port read maps')
         ports[i].readMaps()
+        misc.timeprint('port read modes')
+        ports[i].readModes()
         misc.timeprint('port compute factors')
         ports[i].computeFactors()
         # misc.timeprint('port read EInc')
@@ -131,7 +215,16 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
     misc.timeprint('read RHS')
     RHS = pRead(path['rhs'] + 'RHSs').tocsc()  #Assumes that RHS is stored as a dense matrix or a 'full' sparse matrix
     misc.timeprint('read Js')
-    JSrc = pRead(path['rhs'] + 'Js').tocsc() #Assumes that JSrc is stored as a dense matrix or a 'full' sparse matrix
+    Jpath = path['rhs']+'J*.pmat'
+    filenames = glob.glob(Jpath)
+    beams=Beams()
+    for i in range(len(filenames)):
+        with open(filenames[i][:-5]+'.info', 'rb') as fInfo:
+            driving=struct.unpack('?', fInfo.read(1))[0]
+            x = struct.unpack('d', fInfo.read(8))[0]
+            y = struct.unpack('d', fInfo.read(8))[0]
+            J = pRead(filenames[i][:-5]).tocsc()
+            beams.addBeam(J,(x,y),driving)
 
     fAxisTest,fIndsTest = ut.closest_values(fAxis, np.linspace(fmin,fmax,nTest),returnInd=True)  # select test frequencies from fAxis
     # create test data
@@ -140,7 +233,7 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         subprocess.call("del /q /s " + path['sols'] + "\\test*", shell=True)
 
     runtimeTest=0
-    Z_felis=np.zeros(nTest,dtype=complex)
+    Z_felis=np.zeros((beams.getN(),nTest),dtype=complex)
     for i in range(nTest):
         if felis_todos['test']:
             timeStart = timeit.default_timer()
@@ -153,9 +246,10 @@ def createMatrices(felis_todos,pRead,path,cond,fmin,fmax,nTrain,nTest,nPorts,nMo
         else:
             sols_test = np.append(sols_test, pRead(path['sols'] + 'test_%d' % i), axis=1)
         Z_data=ut.csvRead(path['sols'] + 'test_%d' % i + '.csv',delimiter=',')[0,1:]
-        Z_felis[i]=(Z_data[0]+1j*Z_data[1])
+        for j in range(beams.getN()):
+            Z_felis[j,i]=(Z_data[2*j+0]+1j*Z_data[2*j+1])
     misc.timeprint('runtime Felis for test data: %f' %runtimeTest)
-    return (CC,ME,MC,Sibc,ports,RHS,JSrc,fAxis,fAxisTest,fIndsTest,sols_test,Z_felis,socket)
+    return (facs,Mats,ports,RHS,beams,fAxis,fAxisTest,fIndsTest,sols_test,Z_felis,socket)
 
 
 
@@ -171,7 +265,7 @@ def nested_QR(U,R,a):
     return (U,R)
 
 class Pod_adaptive:
-    def __init__(self,fAxis,ports,Mats,factors,RHS,JSrc,symmetry,fIndsTest,SolsTest,nMax):
+    def __init__(self,fAxis,ports,factors,Mats,RHS,beams,symmetry,fIndsTest,SolsTest,nMax):
         self.fAxis=fAxis
         self.fIndsEval=list(range(len(fAxis)))
         self.ports=ports
@@ -187,13 +281,14 @@ class Pod_adaptive:
 
         self.fIndsTest=fIndsTest
         self.SolsTest=SolsTest
-        self.JSrc=JSrc
+        self.beams=beams
         self.U=np.array([[]])
         self.R=[]
         # self.rhs_reds=np.zeros((nMax,len(fAxis))).astype('complex')
         self.res_ROM=np.zeros(len(fAxis))
         self.err_R_F=np.zeros(len(fIndsTest))
-        self.Z=np.zeros(len(fAxis)).astype('complex')
+        self.Zl=[np.zeros(len(fAxis)).astype('complex') for i in range(beams.getN())]
+        self.Zt=[np.zeros(len(fAxis)).astype('complex') for i in range(beams.getN()-1)]
         self.nMOR=len(fAxis)
         self.solInds=[]
         self.parallel=False
@@ -219,11 +314,29 @@ class Pod_adaptive:
         self.resTMP=np.zeros(np.shape(Mats[0])[0]).astype('complex')
         self.uROM=None
 
-    def correct_sibc(self,sibcInd):
-        self.Mats[sibcInd]=np.real(self.Mats[sibcInd]*np.real(self.factors[sibcInd](self.fAxis[0]))**-1).astype('complex')
+    def directSolveAtTest(self,indFTest):
+        import scipy.sparse.linalg as sslina
+        f=self.fAxis[ self.fIndsTest[indFTest]]
+        # operator=self.Mats[0]*self.factors[0](f)
+        # for i in range(1,len(self.Mats)):
+        #     operator+=self.Mats[i]*self.factors[i](f)
+        w = lambda freq: 2 * np.pi * freq
+        fac = lambda f: -(w(f) / getFelisConstants()[2]) ** 2
+
+        operator=self.Mats[0]*0
+        for i in range(len(self.ports)):
+            operator+=self.ports[i].getPortMat(self.fIndsTest[indFTest])
+        print('norm Port operator:' + str(sslina.norm(operator, 'fro')))
+        operator+=self.Mats[0]+fac(f)*self.Mats[1]
+
+
+        print('norm operator:' + str(sslina.norm(operator, 'fro')))
+        sol=sslina.spsolve(operator,self.RHS[:,self.fIndsTest[indFTest]].toarray())
+        print('2norm sol: '+str(nlina.norm(sol)))
+        return sol
+
 
     def update(self,newSol):
-
         start = timeit.default_timer()
         if np.shape(self.U)[1]==0:
             self.uROM=newSol[:,0]*0
@@ -286,11 +399,11 @@ class Pod_adaptive:
         # end port matrix creation
 
         start = timeit.default_timer()
-        for i in range(len(self.Mats)):
-            if i == 0:
-                AROM = MatsR[i] * self.factors[i](f)
-            else:
-                AROM += MatsR[i] * self.factors[i](f)
+
+        AROM = MatsR[0] * self.factors[0](f)
+        for i in range(1,len(self.Mats)):
+            AROM += MatsR[i] * self.factors[i](f)
+
         AROM += portMat
         self.add_time('mat_assemble', start,fInd)
 
@@ -338,8 +451,6 @@ class Pod_adaptive:
 
         start = timeit.default_timer()
         self.uROM[self.inds_u_proj]=self.Ushort @ vMor
-        # self.uROM[self.inds_u_proj] = (self.U[self.inds_u_proj,:] @ vMor)  # [:,0]
-        # self.uROM = (self.U @ vMor)  # [:,0]
         self.add_time('solve_proj', start,fInd)
 
 
@@ -356,8 +467,14 @@ class Pod_adaptive:
 
         # postprocess solution: impedance
         start = timeit.default_timer()
-        self.Z[fInd] = impedance(self.uROM[self.rhs_inds], self.JSrc[self.rhs_inds, fInd].data,self.symmetry)
+        for beamInd in range(self.beams.getN()):
+            dofInds=self.beams.getDofInds(beamInd)
+            self.Zl[beamInd][fInd] = impedance(self.uROM[self.beams.getDofInds(beamInd)], self.beams.getJ(beamInd)[self.beams.getDofInds(beamInd), fInd].toarray(),self.symmetry) #main code -> don't delete
         self.add_time('Z', start,fInd)
+
+        #old:
+        # self.Z[fInd] = impedance(self.uROM[self.rhs_inds], self.JSrc[self.rhs_inds, fInd].data,self.symmetry)
+        # self.add_time('Z', start,fInd)
         # ZFM[fInd]=impedance(SolsOn[:,fInd],JSrcOn[:,fInd])
 
 
@@ -368,16 +485,20 @@ class Pod_adaptive:
 
 
     def set_residual_indices(self,residual_indices,frac_Sparse):
+
+        #creating the residual matrices and the indexing for the solution vector
         print('number DoFs considered for res: %d' %(len(residual_indices)))
-        self.residual_indices=residual_indices
+        # new
+        self.residual_indices=residual_indices  #the indices of the solution that are considered for the residual estimation
         self.Mats_res=[]
         for i in range(len(self.Mats)):
-            self.Mats_res.append(self.Mats[i][residual_indices,:])
+            self.Mats_res.append(self.Mats[i][residual_indices,:])  #The row indexed matrices for the residual computation
         tempMat=np.sum(self.Mats_res)
-        self.inds_u_res=np.unique(tempMat.indices)
+        self.inds_u_res=np.unique(tempMat.indices) #the indices of the solution that are required for the matrix vector product. Generally more indices than residual_indices
         for i in range(len(self.Mats)):
-            self.Mats_res[i]=self.Mats_res[i][:,self.inds_u_res]
+            self.Mats_res[i]=self.Mats_res[i][:,self.inds_u_res] #The fully indexed matrices for the residual computation
 
+        #needed exclusively for residual computation
         self.rhs_map=(-np.ones(len(residual_indices),dtype=int),-np.ones(len(residual_indices),dtype=int))
         for i in range(len(residual_indices)):
             if residual_indices[i] in self.rhs_inds:
@@ -385,22 +506,20 @@ class Pod_adaptive:
                 self.rhs_map[1][i]=i
         self.rhs_map=(np.unique(self.rhs_map[0])[1:],np.unique(self.rhs_map[1])[1:])
         self.rhs_res=self.RHS_dense[self.rhs_map[0],:]
-        self.rhs_normed=(nlina.norm(self.RHS_dense,axis=0,ord=2)**2/frac_Sparse)**0.5
-        self.rhs_short = np.zeros(len(residual_indices)).astype('complex')
+        self.rhs_normed=(nlina.norm(self.RHS_dense,axis=0,ord=2)**2/frac_Sparse)**0.5  #correction factor because less elements are in the sum
+        self.rhs_short = np.zeros(len(residual_indices)).astype('complex')  #initialize a zero vector
+
     def set_projection_indices(self):
         """
         Set the indices of the projection matrix that are used to project the reduced basis onto the solution. These
-        indices constist of the residual indices and the indices of the beam.
+        indices constist of the residual indices, of the ports and of the beams.
         Returns
         -------
 
         """
         inds_u_res=self.inds_u_res
-        inds_beam=self.RHS[:,0].indices
-        inds_port=self.ports[0].get3Dinds()
-        for i in range(1,len(self.ports)):
-            inds_port=np.append(inds_port,self.ports[i].get3Dinds())
-        self.inds_u_proj=np.sort(np.unique(np.concatenate((inds_u_res,inds_beam,inds_port))))
+        inds_rhs=self.RHS[:,0].indices
+        self.inds_u_proj=np.sort(np.unique(np.concatenate((inds_u_res,inds_rhs,self.beams.getDofInds()))))
 
     def residual_estimation(self, fInd):
         start = timeit.default_timer()
@@ -413,22 +532,24 @@ class Pod_adaptive:
                 RHSrom += self.Mats_res[i] @ (self.factors[i](f) * uROM_short)
         self.add_time('res_mats', start,fInd)
 
+
+
+
         start = timeit.default_timer()
         for i in range(len(self.ports)):
             self.resTMP[self.ports[i].get3Dinds()]=self.ports[i].multiplyVecPortMatSparse(self.uROM,fInd)
             RHSrom += self.resTMP[self.residual_indices]
             self.resTMP[self.ports[i].get3Dinds()] *=0
         self.add_time('res_port', start,fInd)
-        #
-        # start = timeit.default_timer()
-        # self.rhs_short[self.rhs_map[1]] = self.rhs_res[:, fInd]
-        # self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/nlina.norm(self.rhs_short,ord=2)
-        # self.add_time('res_norm1', start, fInd)
+
+
 
         start = timeit.default_timer()
         self.rhs_short[self.rhs_map[1]] = self.rhs_res[:, fInd]
         self.res_ROM[fInd] = nlina.norm(self.rhs_short - RHSrom,ord=2)/self.rhs_normed[fInd]
         self.add_time('res_norm', start, fInd)
+
+
     def add_time(self, timeName, start,fInd):
         if self.timing:
             self.times[timeName][self.nBasis-1,fInd]+=(timeit.default_timer() - start)
@@ -514,8 +635,20 @@ class Pod_adaptive:
         errTot=np.linalg.norm(self.err_R_F)/np.sqrt(len(self.fIndsTest))
         return resTot,errTot,self.res_ROM[self.fIndsEval],self.err_R_F
 
-    def get_Z(self):
-        return self.fAxis[self.fIndsEval],self.Z[self.fIndsEval]
+    def get_Zl(self, iBeam=None):
+        if iBeam==None:
+            Zl=[self.Zl[i][self.fIndsEval] for i in range(len(self.Zl))]
+            return self.fAxis[self.fIndsEval],Zl
+        else:
+            return self.Zl[iBeam][self.fIndsEval]
+    def get_Zt(self, iBeam):
+        Ztest=self.get_Zl(iBeam)
+        Zdriv=self.get_Zl(self.beams.getDrivingBeam())
+        stest=np.array(self.beams.getPosition(iBeam))
+        sdriv=np.array(self.beams.getPosition(self.beams.getDrivingBeam()))
+        factor=getFelisConstants()[2]/self.fAxis[self.fIndsEval]/2/np.pi
+        Zt=factor*(Ztest-Zdriv)/nlina.norm(stest-sdriv)
+        return Zt
 
     # def getRHS(self,fInd):
     #     return self.RHS[:,fInd].toarray()[:,0]
@@ -526,7 +659,11 @@ class Pod_adaptive:
     def get_fAxis(self):
         return self.fAxis
 
+    def getDrivingBeam(self):
+        return self.beams.getDrivingBeam()
 
+    # def getJ(self,iBeam):
+    #     return self.beams.getJ(iBeam)
 
 
 

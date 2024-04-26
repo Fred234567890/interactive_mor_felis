@@ -26,12 +26,14 @@ class Port:
         self.factors = np.zeros((self.getNumModes(),len(fAxis))).astype('complex')*np.NaN
 
 
-    def readModesTx (matRead,path,Tx,numModes) :
+    def readModesTx (self,matRead,path,Tx,numModes) :
         fieldsTx=list ()
         # N=0
+        n = len(self.indices3D)
+        col_indices = np.zeros(n, dtype=int)
         for i in range (numModes) :
-            newField=sc.sparse.csc_matrix(matRead(path+Tx+'\\'+str (i)))
-            fieldsTx.append (newField)
+            newField=matRead(path+Tx+'\\'+str (i))[self.indices3D]
+            fieldsTx.append (sc.sparse.csc_matrix((newField[:,0], (self.indices3D, col_indices)), shape=(np.shape(self.M2D3D)[1], 1)))
             # if i==0: N=len (fieldsTx[0])
         return fieldsTx
 
@@ -47,14 +49,18 @@ class Port:
             self.cutoffsTM=[]
         
         self.fields = list() #readModesTx(self,'TB', self.numTB)
-        self.fields+=Port.readModesTx (self.matRead,self.path,'TS',self.numTS)
-        self.fields+=Port.readModesTx (self.matRead,self.path,'TE',self.numTE)
-        self.fields+=Port.readModesTx (self.matRead,self.path,'TM',self.numTM)
+        self.fields+=self.readModesTx (self.matRead,self.path,'TS',self.numTS)
+        self.fields+=self.readModesTx (self.matRead,self.path,'TE',self.numTE)
+        self.fields+=self.readModesTx (self.matRead,self.path,'TM',self.numTM)
 
  
     def readMaps(self):
         self.M2D2D=self.matRead(self.path+'M2D2D')
         self.M2D3D=self.matRead(self.path+'M2D3D')
+        non_zero_columns = set()
+        for i in range(self.M2D3D.shape[0]):
+            non_zero_columns.update(self.M2D3D.indices[self.M2D3D.indptr[i]:self.M2D3D.indptr[i + 1]])
+        self.indices3D = sorted(list(non_zero_columns))
 
     # def readEInc(self):
     #     self.EIncs=self.matRead(self.path+'EInc')
@@ -137,8 +143,12 @@ class Port:
     
     def getPortMat(self,fInd):
         A = self.getFactor(0, fInd) *self.getModeMat (0)
+        print('Gamma='+str(self.getFactor(0, fInd)))
+        print('outer norm='+str(sslina.norm(self.getModeMat (0),'fro')))
         for ind in range (1,self.getNumModes()) :
             A+= self.getFactor(ind, fInd) *self.getModeMat (ind)
+            print('outer norm='+str(sslina.norm(self.getModeMat (ind),'fro')))
+            print('Gamma='+str(self.getFactor(ind, fInd)))
         return A
 
     def MultiplyModeMat(self,ind,fInd):
